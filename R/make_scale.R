@@ -30,7 +30,8 @@ make_scale <- function(
       label_off = proposition,
       icon_on = shiny::icon(tmpicon),
       status_on = tmpstatus,
-      status_off = NULL
+      status_off = NULL,
+      width = "100%"
     )
     
   } else if (scale == "percentage"){
@@ -58,7 +59,8 @@ make_scale <- function(
       ),
       selected = checked, size = "sm",
       justified = TRUE, status = "primary",
-      checkIcon = base::list(yes = shiny::icon("check"))
+      checkIcon = base::list(yes = shiny::icon("check")),
+      width = "100%"
     )
     
   }

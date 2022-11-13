@@ -1,3 +1,36 @@
+#' @name compile_grading
+#' @title Compile all test data
+#' @author Nicolas Mangin
+#' @description Function Gathering and updating test data.
+#' @param test_parameters Tibble.
+#' @param solutions Tibble.
+#' @param students Tibble.
+#' @param closed_answers Tibble.
+#' @param numeric_answers Tibble.
+#' @param open_answers Tibble.
+#' @param answers Tibble.
+#' @param results Tibble.
+#' @return List with all compiled and updated test data.
+#' @importFrom dplyr anti_join
+#' @importFrom dplyr arrange
+#' @importFrom dplyr bind_rows
+#' @importFrom dplyr group_by
+#' @importFrom dplyr left_join
+#' @importFrom dplyr mutate
+#' @importFrom dplyr select
+#' @importFrom dplyr summarise
+#' @importFrom dplyr ungroup
+#' @importFrom purrr map
+#' @importFrom stats na.omit
+#' @importFrom stringr str_detect
+#' @importFrom stringr str_remove_all
+#' @importFrom tibble tibble
+#' @importFrom tidyr nest
+#' @importFrom tidyr replace_na
+#' @importFrom tidyr separate
+#' @importFrom tidyr unite
+#' @importFrom tidyr unnest
+#' @export
 
 
 
@@ -8,6 +41,28 @@ compile_grading <- function(
     closed_answers, numeric_answers, open_answers,
     answers, results
 ){
+  
+  test <- NULL
+  proposition <- NULL
+  path <- NULL
+  type <- NULL
+  document <- NULL
+  language <- NULL
+  interrogation <- NULL
+  number <- NULL
+  data <- NULL
+  question <- NULL
+  partial_credits <- NULL
+  penalty <- NULL
+  points <- NULL
+  letter <- NULL
+  item <- NULL
+  weight <- NULL
+  student <- NULL
+  attempt <- NULL
+  checked <- NULL
+  earned <- NULL
+  grade <- NULL
   
   # Add students missing in the student list
   not_enrolled <- base::setdiff(
@@ -138,7 +193,33 @@ compile_grading <- function(
       language, scale, partial_credits, penalty, points, checked, weight
     ) |>
     dplyr::mutate(earned = checked * weight) |>
-    gradR::clean_points()
+    clean_points()
+  
+  # Compute grades
+  question_grades <- results |>
+    tidyr::unite("student", student, attempt, sep = "-") |>
+    dplyr::group_by(student, test, question) |>
+    dplyr::summarise(
+      points = base::max(points, na.rm = TRUE),
+      earned = base::sum(earned, na.rm = TRUE),
+      .groups = "drop"
+    ) |>
+    dplyr::mutate(
+      earned = dplyr::case_when(
+        earned > points ~ points,
+        TRUE ~ earned
+      )
+    ) |>
+    dplyr::mutate(earned = base::round(earned, 2))
+  
+  student_grades <- question_grades |>
+    dplyr::group_by(student) |>
+    dplyr::summarise(
+      points = base::sum(points, na.rm = TRUE),
+      grade = base::sum(earned, na.rm = TRUE),
+      .groups = "drop"
+    ) |>
+    dplyr::mutate(grade = base::round(grade, 2))
   
   compilation <- base::list(
     test_parameters = test_parameters,
@@ -148,7 +229,9 @@ compile_grading <- function(
     numeric_answers = numeric_answers,
     open_answers = open_answers,
     answers = answers,
-    results = results
+    results = results,
+    question_grades = question_grades,
+    student_grades = student_grades
   )
   
   return(compilation)

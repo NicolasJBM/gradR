@@ -29,5 +29,6 @@ Imports:
   shinyWidgets,
   shinyalert,
   shinydashboard,
-  teachR
+  teachR,
+  editR
 
