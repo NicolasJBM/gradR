@@ -257,8 +257,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
           closed_answers,
           numeric_answers,
           open_answers,
-          answers,
-          results
+          answers
         )
         
         modrval$test_path <- test_path
@@ -388,13 +387,6 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         )
       })
       
-      
-      
-      
-      
-      
-      
-      
       open_answer <- shiny::reactive({
         shiny::req(!base::is.null(modrval$open_answers))
         shiny::req(!base::is.null(selected_version()))
@@ -471,7 +463,42 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         )
       })
       
-      
+      shiny::observeEvent(input$save_checks, {
+        shiny::req(!base::is.null(selected_version()))
+        versiontype <- modrval$test_parameters |>
+          dplyr::filter(version == selected_version()) |>
+          dplyr::left_join(
+            dplyr::select(course_data()$documents, question = file, type),
+            by = "question"
+          )
+        versiontype <- versiontype$type[[1]]
+        print(versiontype)
+        if (!(versiontype %in% c("Essay","Problem"))){
+          shinyalert::shinyalert("No change allowed!", "Answers to multiple-choice and numeric questions cannot be modified; this form is meant to be changed only to grade open-ended answers.", "error")
+        } else {
+          checkinput <- base::names(input)
+          checkinput <- checkinput[stringr::str_detect(checkinput, "check_")]
+          base::print(input[[checkinput]])
+          
+          #open_answers <- NA
+          #compiled <- compile_grading(
+          #  modrval$test_parameters,
+          #  modrval$solutions,
+          #  modrval$students,
+          #  modrval$closed_answers,
+          #  modrval$numeric_answers,
+          #  open_answers,
+          #answers
+          #)
+          #modrval$open_answers <- compiled$open_answers
+          #modrval$answers <- compiled$answers
+          #modrval$scoring <- compiled$scoring
+          #modrval$results <- compiled$results
+          #modrval$question_grades <- compiled$question_grades
+          #modrval$student_grades <- compiled$student_grades
+          #write_compiled(compiled, test_path)
+        }
+      })
       
       
       

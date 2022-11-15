@@ -9,7 +9,6 @@
 #' @param numeric_answers Tibble.
 #' @param open_answers Tibble.
 #' @param answers Tibble.
-#' @param results Tibble.
 #' @return List with all compiled and updated test data.
 #' @importFrom dplyr anti_join
 #' @importFrom dplyr arrange
@@ -39,7 +38,7 @@
 compile_grading <- function(
     test_parameters, solutions, students,
     closed_answers, numeric_answers, open_answers,
-    answers, results
+    answers
 ){
   
   test <- NULL

@@ -11,8 +11,7 @@ compile_grading(
   closed_answers,
   numeric_answers,
   open_answers,
-  answers,
-  results
+  answers
 )
 }
 \arguments{
@@ -29,8 +28,6 @@ compile_grading(
 \item{open_answers}{Tibble.}
 
 \item{answers}{Tibble.}
-
-\item{results}{Tibble.}
 }
 \value{
 List with all compiled and updated test data.
