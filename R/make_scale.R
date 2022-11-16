@@ -17,9 +17,9 @@ make_scale <- function(
   letter, proposition, scale, checked, correct, ns
 ){
   
-  if (scale == "logical" | scale == "numeric" ){
+  if (scale == "logical"){
     
-    if(checked == 1) tmpvalue <- TRUE else tmpvalue <- FALSE
+    if(checked == 1) tmpvalue <- 1 else tmpvalue <- 0
     if (correct > 0) tmpicon <- "check" else tmpicon <- "times"
     if (correct > 0) tmpstatus <- "success" else tmpstatus <- "danger"
     

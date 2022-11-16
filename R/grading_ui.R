@@ -37,15 +37,15 @@ grading_ui <- function(id){
         ),
         shiny::fluidRow(
           shiny::column(
+            3,
+            shiny::uiOutput(ns("viewversion"))
+          ),
+          shiny::column(
             4,
             shiny::uiOutput(ns("displaywordcount")),
             shiny::uiOutput(ns("display_selected_answer")),
             shiny::tags$hr(),
             shiny::uiOutput(ns("keywords_selection"))
-          ),
-          shiny::column(
-            3,
-            shiny::uiOutput(ns("viewversion"))
           ),
           shiny::column(
             5,
@@ -65,15 +65,31 @@ grading_ui <- function(id){
             title = "Complement and correct the criteria, solutions, and feedback associated with each question."
           )
         ),
+        shiny::fluidRow(shiny::uiOutput(ns("question_infoboxes"))),
         shiny::fluidRow(
           shiny::column(
-            4
+            9,
+            shiny::uiOutput(ns("edit_question_parameters"))
           ),
           shiny::column(
-            4
+            3,
+            shiny::actionButton(
+              ns("update_solutions"), "Save solutions", icon = shiny::icon("save"),
+              style = "background-color:#006600;color:#FFF;width:200px;"
+            )
+          )
+        ),
+        shiny::fluidRow(
+          rhandsontable::rHandsontableOutput(ns("edit_solutions"))
+        ), 
+        shiny::fluidRow(
+          shiny::column(
+            6#,
+            #shiny::uiOutput(ns("question_stats"))
           ),
           shiny::column(
-            4
+            6#,
+            #shiny::plotOutput(ns("question_diagram"))
           )
         )
       ),
