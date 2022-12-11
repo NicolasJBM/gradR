@@ -95,7 +95,7 @@ grading_ui <- function(id){
       ),
       shiny::tabPanel(
         title = shiny::tagList(
-          shiny::icon("stethoscope"), shiny::span(
+          shiny::icon("magnifying-glass-chart"), shiny::span(
             "Diagnostics",
             title = "Check grading consistency across students."
           )
