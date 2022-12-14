@@ -264,6 +264,11 @@ grading_server <- function(id, test, tree, course_data, course_paths){
           )
         }
         
+        shiny::req(
+          (base::nrow(stats::na.omit(closed_answers)) +
+            base::nrow(stats::na.omit(numeric_answers)) +
+            base::nrow(stats::na.omit(open_answers))) > 0)
+        
         compiled <- compile_grading(
           test_parameters,
           solutions,
