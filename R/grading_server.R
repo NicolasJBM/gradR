@@ -127,6 +127,8 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         shiny::req(base::file.exists(parameters_path))
         base::load(parameters_path)
         
+        shiny::req(base::nrow(stats::na.omit(test_parameters)) > 0)
+        
         # Solutions
         solutions <- base::list.files(base::paste0(
           test_path, "/4_solutions"
