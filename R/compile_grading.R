@@ -119,7 +119,9 @@ compile_grading <- function(
     dplyr::mutate(
       data = purrr::map(data, function(x,y){
         x <- dplyr::arrange(x, number)
-        x$number <- 1:base::nrow(x)
+        for (i in base::seq_len(base::nrow(x))) {
+          if (base::is.na(x$number[i])) x$number[i] <- i
+        }
         x$letter <- y[x$number]
         x
       }, y = possible_letters)
