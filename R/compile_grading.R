@@ -70,9 +70,9 @@ compile_grading <- function(
   )
   if (base::length(not_enrolled) > 0){
     not_enrolled <- tibble::tibble(
-      student = not_enrolled, team = base::as.character(),
-      firstname = base::as.character(), lastname = base::as.character(),
-      email = base::as.character(), enrolled = 0
+      student = not_enrolled, team = base::as.character(NA),
+      firstname = base::as.character(NA), lastname = base::as.character(NA),
+      email = base::as.character(NA), enrolled = 0
     )
     students <- dplyr::bind_rows(students, not_enrolled)
     base::rm(not_enrolled)
@@ -128,7 +128,9 @@ compile_grading <- function(
     dplyr::ungroup()
   max_extra <- solutions$item[stringr::str_detect(solutions$item, "EXTRAITEM_")]
   max_extra <- base::as.numeric(stringr::str_remove_all(max_extra, "EXTRAITEM_"))
-  max_extra <- base::max(stats::na.omit(max_extra))+1
+  if (base::length(stats::na.omit(max_extra)) > 0) {
+    max_extra <- base::max(stats::na.omit(max_extra))+1
+  } else max_extra <- 1
   for (i in 1:nrow(solutions)){
     if (base::is.na(solutions$item[i])){
       solutions$item[i] <- base::paste0("EXTRAITEM_", max_extra)
