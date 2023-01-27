@@ -357,7 +357,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         test_parameters <- modrval$test_parameters
         base::load(course_paths()$databases$propositions)
         base::load(course_paths()$databases$translations)
-        as_latex <- FALSE
+        docformat <- "html"
         record_solution <- FALSE
         base::suppressWarnings(
           shiny::withMathJax(shiny::HTML(knitr::knit2html(
