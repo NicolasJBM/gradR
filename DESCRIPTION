@@ -22,12 +22,13 @@ Imports:
   stringr,
   tibble,
   tidyr,
-  ggplot2,
   knitr,
   readr,
   rhandsontable,
   shinyWidgets,
   shinyalert,
+  shinybusy,
   shinydashboard,
   teachR,
-  editR
+  editR,
+  chartR

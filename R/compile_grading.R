@@ -9,10 +9,12 @@
 #' @param numeric_answers Tibble.
 #' @param open_answers Tibble.
 #' @param answers Tibble.
+#' @param parameter_change Character. If there is a change in a question parameters, give the question id.
 #' @return List with all compiled and updated test data.
 #' @importFrom dplyr anti_join
 #' @importFrom dplyr arrange
 #' @importFrom dplyr bind_rows
+#' @importFrom dplyr case_when
 #' @importFrom dplyr group_by
 #' @importFrom dplyr left_join
 #' @importFrom dplyr mutate
@@ -38,7 +40,7 @@
 compile_grading <- function(
     test_parameters, solutions, students,
     closed_answers, numeric_answers, open_answers,
-    answers
+    answers, parameter_change = NA
 ){
   
   test <- NULL
@@ -62,6 +64,12 @@ compile_grading <- function(
   checked <- NULL
   earned <- NULL
   grade <- NULL
+  correct <- NULL
+  count <- NULL
+  duplication <- NULL
+  nbrcorrect <- NULL
+  nbrincorrect <- NULL
+  standard_weight <- NULL
   
   # Add students missing in the student list
   not_enrolled <- base::setdiff(
@@ -77,6 +85,8 @@ compile_grading <- function(
     students <- dplyr::bind_rows(students, not_enrolled)
     base::rm(not_enrolled)
   }
+  
+  
   
   # Add numeric answers missing in the solutions
   missing_numeric_propositions <- numeric_answers |>
@@ -109,6 +119,8 @@ compile_grading <- function(
   }
   base::rm(missing_numeric_propositions)
   
+  
+  
   # create missing numbers, letters, and and items
   possible_letters <- c(
     letters, base::sapply(letters, function(x) base::paste0(x, letters))
@@ -128,38 +140,70 @@ compile_grading <- function(
     ) |>
     tidyr::unnest(data) |>
     dplyr::ungroup()
-  max_extra <- solutions$item[stringr::str_detect(solutions$item, "EXTRAITEM_")]
-  max_extra <- base::as.numeric(stringr::str_remove_all(max_extra, "EXTRAITEM_"))
+  max_extra <- solutions$item[stringr::str_detect(solutions$item, "EXTRAITEM")]
+  max_extra <- base::as.numeric(stringr::str_remove_all(max_extra, "EXTRAITEM"))
   if (base::length(stats::na.omit(max_extra)) > 0) {
     max_extra <- base::max(stats::na.omit(max_extra))+1
   } else max_extra <- 1
   for (i in 1:nrow(solutions)){
     if (base::is.na(solutions$item[i])){
-      solutions$item[i] <- base::paste0("EXTRAITEM_", max_extra)
+      solutions$item[i] <- base::paste0("EXTRAITEM", max_extra)
       max_extra <- max_extra+1
     }
   }
   base::rm(possible_letters)
   
-  # Update scoring
-  scoring <- test_parameters |>
-    dplyr::select(
-      test, question, version, partial_credits, penalty, points
+  
+  
+  # Update standard scoring
+  standard_scoring <- test_parameters |>
+    dplyr::select(version, penalty, points) |>
+    dplyr::left_join(
+      dplyr::select(solutions, version, item, letter, correct, weight),
+      by = c("version")
     ) |>
-    dplyr::left_join(solutions, by = c("test","version")) |>
-    dplyr::select(
-      test, question, version, number, letter, item, language,
-      proposition, scale, partial_credits, penalty, points, weight
+    dplyr::group_by(version, letter) |>
+    dplyr::mutate(duplication = dplyr::n()) |>
+    dplyr::ungroup() |>
+    dplyr::group_by(version) |>
+    dplyr::mutate(
+      count = dplyr::n(),
+      nbrcorrect = base::sum(correct),
+      nbrincorrect = count - nbrcorrect
     ) |>
-    dplyr::group_by(
-      test, question, version, number, letter, item, language,
-      proposition, scale, partial_credits, penalty
+    dplyr::ungroup() |>
+    dplyr::mutate(
+      standard_weight = points*duplication*(correct/nbrcorrect-penalty*(1-correct)/nbrincorrect)
     ) |>
-    dplyr::summarise(
-      points = base::mean(points),
-      weight = base::mean(weight),
-      .groups = "drop"
-    )
+    dplyr::select(version, item, letter, standard_weight)
+  
+  
+  
+  # Update solutions weights with new standard scoring
+  solutions <- solutions |>
+    dplyr::left_join(standard_scoring, by = c("version","item","letter"))
+  if (!base::is.na(parameter_change)){
+    print("there is no parameter change...")
+    solutions <- solutions |>
+      dplyr::mutate(
+        weight = dplyr::case_when(
+          question == parameter_change ~ standard_weight,
+          TRUE ~ weight
+        )
+      )
+  } else {
+    print("there is a parameter change!!!")
+    solutions <- solutions |>
+      dplyr::mutate(
+        weight = dplyr::case_when(
+          base::is.na(weight) ~ standard_weight,
+          TRUE ~ weight
+        )
+      )
+  }
+  solutions <- dplyr::select(solutions, -standard_weight)
+  
+  
   
   # update compiled answers to integrate new students, attempts, or propositions
   answers <- dplyr::bind_rows(
@@ -184,24 +228,29 @@ compile_grading <- function(
     tidyr::replace_na(base::list(checked = 0)) |>
     dplyr::arrange(student, test, version, letter)
   
+  
+  
   # update results to account for new compiled answers and new scoring
+  aggregated_weights <- solutions |>
+    dplyr::group_by(version, number, letter, item, language, scale) |>
+    dplyr::summarise(weight = base::sum(weight), .groups = "drop")
+  question_parameters <- test_parameters |>
+    dplyr::select(question, partial_credits, penalty, points) |>
+    base::unique()
   results <- answers |>
     tidyr::separate(student, into = c("student","attempt"), sep = "-") |>
-    dplyr::left_join(
-      scoring,
-      by = base::intersect(base::names(scoring), base::names(answers))
-    ) |>
+    dplyr::left_join(aggregated_weights, by = c("version","letter")) |>
+    dplyr::left_join(question_parameters, by = c("question")) |>
+    dplyr::mutate(earned = checked * weight) |>
     dplyr::select(
       student, test, attempt, question, version, number, letter, item,
-      language, scale, partial_credits, penalty, points, checked, weight
-    ) |>
-    dplyr::mutate(earned = checked * weight) |>
-    clean_points()
+      language, scale, partial_credits, penalty, points, checked, weight, earned
+    )
   
   # Compute grades
   question_grades <- results |>
     tidyr::unite("student", student, attempt, sep = "-") |>
-    dplyr::group_by(student, test, question) |>
+    dplyr::group_by(student, test, question, partial_credits) |>
     dplyr::summarise(
       points = base::max(points, na.rm = TRUE),
       earned = base::sum(earned, na.rm = TRUE),
@@ -210,9 +259,11 @@ compile_grading <- function(
     dplyr::mutate(
       earned = dplyr::case_when(
         earned > points ~ points,
+        partial_credits == 0 & earned < points ~ 0,
         TRUE ~ earned
       )
     ) |>
+    dplyr::select(-partial_credits) |>
     dplyr::mutate(earned = base::round(earned, 2))
   
   student_grades <- question_grades |>

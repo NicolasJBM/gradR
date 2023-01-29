@@ -65,31 +65,42 @@ grading_ui <- function(id){
             title = "Complement and correct the criteria, solutions, and feedback associated with each question."
           )
         ),
-        shiny::fluidRow(shiny::uiOutput(ns("question_infoboxes"))),
         shiny::fluidRow(
           shiny::column(
             9,
-            shiny::uiOutput(ns("edit_question_parameters"))
+            shiny::fluidRow(shiny::uiOutput(ns("question_infoboxes"))),
+            shiny::fluidRow(
+              shiny::column(
+                12,
+                shiny::uiOutput(ns("edit_question_parameters"))
+              )
+            ),
+            shiny::fluidRow(
+              shiny::column(
+                8,
+                shiny::actionButton(
+                  ns("refresh_itemstats"), "Refresh item statistics", icon = shiny::icon("rotate"),
+                  style = "background-color:#006699;color:#FFF;width:100%;height:50px;margin-top:5px;"
+                )
+              ),
+              shiny::column(
+                4,
+                shiny::actionButton(
+                  ns("update_solutions"), "Save solutions", icon = shiny::icon("save"),
+                  style = "background-color:#006600;color:#FFF;width:100%;height:50px;margin-top:5px;"
+                )
+              )
+            )
           ),
           shiny::column(
             3,
-            shiny::actionButton(
-              ns("update_solutions"), "Save solutions", icon = shiny::icon("save"),
-              style = "background-color:#006600;color:#FFF;width:200px;"
-            )
+            shiny::plotOutput(ns("question_curve"))
           )
         ),
         shiny::fluidRow(
-          rhandsontable::rHandsontableOutput(ns("edit_solutions"))
-        ), 
-        shiny::fluidRow(
           shiny::column(
-            6#,
-            #shiny::uiOutput(ns("question_stats"))
-          ),
-          shiny::column(
-            6#,
-            #shiny::plotOutput(ns("question_diagram"))
+            12,
+            rhandsontable::rHandsontableOutput(ns("edit_solutions"))
           )
         )
       ),
@@ -97,7 +108,7 @@ grading_ui <- function(id){
         title = shiny::tagList(
           shiny::icon("magnifying-glass-chart"), shiny::span(
             "Diagnostics",
-            title = "Check grading consistency across students."
+            title = "Check grading consistency across questions and students."
           )
         ),
         shiny::fluidRow(
@@ -110,6 +121,24 @@ grading_ui <- function(id){
           ),
           shiny::column(
             4
+          )
+        )
+      ),
+      shiny::tabPanel(
+        title = shiny::tagList(
+          shiny::icon("chart-column"), shiny::span(
+            "Results",
+            title = "Test statistics and distribution of results."
+          )
+        ),
+        shiny::fluidRow(
+          shiny::column(
+            6#,
+            #shiny::uiOutput(ns("test_metrics"))
+          ),
+          shiny::column(
+            6#,
+            #shiny::uiOutput(ns("test_distribution"))
           )
         )
       )

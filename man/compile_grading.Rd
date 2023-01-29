@@ -11,7 +11,8 @@ compile_grading(
   closed_answers,
   numeric_answers,
   open_answers,
-  answers
+  answers,
+  parameter_change = NA
 )
 }
 \arguments{
@@ -28,6 +29,8 @@ compile_grading(
 \item{open_answers}{Tibble.}
 
 \item{answers}{Tibble.}
+
+\item{parameter_change}{Character. If there is a change in a question parameters, give the question id.}
 }
 \value{
 List with all compiled and updated test data.

@@ -4,12 +4,21 @@
 \alias{write_compiled}
 \title{Write test results on disk}
 \usage{
-write_compiled(compiled, test_path)
+write_compiled(
+  compiled,
+  test_path,
+  write_parameters = FALSE,
+  write_solutions = FALSE
+)
 }
 \arguments{
 \item{compiled}{List. All test results.}
 
 \item{test_path}{Character. Path to the test folder.}
+
+\item{write_parameters}{Logical. Whether test parameters should be updated on disk.}
+
+\item{write_solutions}{Logical. Whether solutions should be rewritten on disk.}
 }
 \description{
 Function writing formated answers, results, and grades in the exam results folder
