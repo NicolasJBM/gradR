@@ -61,6 +61,8 @@ compile_grading <- function(
   weight <- NULL
   student <- NULL
   attempt <- NULL
+  questype <- NULL
+  raw_checked <- NULL
   checked <- NULL
   earned <- NULL
   grade <- NULL
@@ -183,16 +185,16 @@ compile_grading <- function(
   solutions <- solutions |>
     dplyr::left_join(standard_scoring, by = c("version","item","letter"))
   if (!base::is.na(parameter_change)){
-    print("there is no parameter change...")
+    selected_versions <- test_parameters |>
+      dplyr::filter(question == parameter_change)
     solutions <- solutions |>
       dplyr::mutate(
         weight = dplyr::case_when(
-          question == parameter_change ~ standard_weight,
+          version %in% selected_versions$version ~ standard_weight,
           TRUE ~ weight
         )
       )
   } else {
-    print("there is a parameter change!!!")
     solutions <- solutions |>
       dplyr::mutate(
         weight = dplyr::case_when(
@@ -206,26 +208,71 @@ compile_grading <- function(
   
   
   # update compiled answers to integrate new students, attempts, or propositions
-  answers <- dplyr::bind_rows(
-    dplyr::select(closed_answers, student, test, attempt, version),
-    dplyr::select(numeric_answers, student, test, attempt, version),
-    dplyr::select(open_answers, student, test, attempt, version)
-  ) |>
-    base::unique() |>
+  raw_closed <- closed_answers |>
+    dplyr::select(student, test, attempt, version, checked_letter = letter) |>
+    dplyr::group_by(version) |>
+    tidyr::nest() |>
+    dplyr::left_join(
+      base::unique(dplyr::select(solutions, version, letter)),
+      by = "version"
+    ) |>
+    tidyr::unnest(data) |>
+    dplyr::ungroup() |>
+    dplyr::mutate(raw_checked = dplyr::case_when(
+      letter == checked_letter ~ 1,
+      TRUE ~ 0
+    ), questype = "closed") |>
+    dplyr::select(student, test, attempt, version, letter, questype, raw_checked)
+  
+  raw_numeric <- numeric_answers |>
+    dplyr::select(student, test, attempt, version, proposition_made = proposition) |>
+    dplyr::group_by(version) |>
+    tidyr::nest() |>
+    dplyr::left_join(
+      base::unique(dplyr::select(solutions, version, letter, proposition)),
+      by = "version"
+    ) |>
+    tidyr::unnest(data) |>
+    dplyr::ungroup() |>
+    dplyr::mutate(raw_checked = dplyr::case_when(
+      proposition == proposition_made ~ 1,
+      TRUE ~ 0
+    ), questype = "numeric") |>
+    dplyr::select(student, test, attempt, version, letter, questype, raw_checked)
+  
+  raw_open <- open_answers |>
+    dplyr::select(student, test, attempt, version) |>
+    dplyr::group_by(version) |>
+    tidyr::nest() |>
+    dplyr::left_join(
+      base::unique(dplyr::select(solutions, version, letter)),
+      by = "version"
+    ) |>
+    tidyr::unnest(data) |>
+    dplyr::ungroup() |>
+    dplyr::mutate(raw_checked = 0, questype = "open") |>
+    dplyr::select(student, test, attempt, version, letter, questype, raw_checked)
+  
+  answers <- dplyr::bind_rows(raw_closed, raw_numeric, raw_open) |>
+    base::unique()|>
     tidyr::unite(student, student, attempt, sep = "-") |>
     dplyr::left_join(
       base::unique(dplyr::select(test_parameters, question, version)),
       by = "version"
-    )  |>
-    dplyr::left_join(
-      base::unique(dplyr::select(solutions, test, version, letter)),
-      by = c("test","version")
     ) |>
-    dplyr::select(student, test, question, version, letter) |>
     dplyr::left_join(
-      answers, by = c("student", "test", "question", "version", "letter")
+      dplyr::select(answers, student, version, letter, checked),
+      by = c("student", "version", "letter") 
     ) |>
-    tidyr::replace_na(base::list(checked = 0)) |>
+    dplyr::mutate(
+      checked = dplyr::case_when(
+        questype == "closed" ~ raw_checked,
+        questype == "numeric" ~ raw_checked,
+        base::is.na(checked) ~ 0,
+        TRUE ~ checked
+      )
+    ) |>
+    dplyr::select(student, test, question, version, letter, checked) |>
     dplyr::arrange(student, test, version, letter)
   
   
@@ -250,7 +297,7 @@ compile_grading <- function(
   # Compute grades
   question_grades <- results |>
     tidyr::unite("student", student, attempt, sep = "-") |>
-    dplyr::group_by(student, test, question, partial_credits) |>
+    dplyr::group_by(student, test, question, partial_credits, penalty) |>
     dplyr::summarise(
       points = base::max(points, na.rm = TRUE),
       earned = base::sum(earned, na.rm = TRUE),
@@ -259,11 +306,12 @@ compile_grading <- function(
     dplyr::mutate(
       earned = dplyr::case_when(
         earned > points ~ points,
-        partial_credits == 0 & earned < points ~ 0,
+        partial_credits == 0 & earned > 0 & earned < points ~ 0,
+        penalty == 0 & earned < 0 ~ 0,
         TRUE ~ earned
       )
     ) |>
-    dplyr::select(-partial_credits) |>
+    dplyr::select(-partial_credits, -penalty) |>
     dplyr::mutate(earned = base::round(earned, 2))
   
   student_grades <- question_grades |>

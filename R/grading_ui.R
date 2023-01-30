@@ -133,12 +133,22 @@ grading_ui <- function(id){
         ),
         shiny::fluidRow(
           shiny::column(
-            6#,
-            #shiny::uiOutput(ns("test_metrics"))
+            2,
+            shiny::numericInput(ns("defpass"), "Pass:", value = 0),
           ),
           shiny::column(
-            6#,
-            #shiny::uiOutput(ns("test_distribution"))
+            10,
+            shiny::uiOutput(ns("testmetrics"))
+          )
+        ),
+        shiny::fluidRow(
+          shiny::column(
+            2,
+            shiny::numericInput(ns("defhistbreaks"), "Breaks:", value = 1)
+          ),
+          shiny::column(
+            10,
+            shiny::plotOutput(ns("testdistribution"))
           )
         )
       )

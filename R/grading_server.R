@@ -619,6 +619,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
       output$question_curve <- shiny::renderPlot({
         shiny::req(!base::is.null(question_statistics()))
         shiny::req(!base::is.null(selected_question()))
+        shiny::req(selected_question() %in% question_statistics()$models$code)
         selected_model <- question_statistics()$models |>
           dplyr::filter(code == selected_question())
         chartR::display_curve(selected_model$data[[1]])
@@ -804,7 +805,8 @@ grading_server <- function(id, test, tree, course_data, course_paths){
           modrval$closed_answers,
           modrval$numeric_answers,
           modrval$open_answers,
-          modrval$answers
+          modrval$answers,
+          parameter_change = selected_question()
         )
         modrval$test_parameters <- compiled$test_parameters
         modrval$scoring <- compiled$scoring
@@ -823,12 +825,10 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         shiny::req(!base::is.null(input$edit_solutions))
         unchanged_solutions <- modrval$solutions |>
           dplyr::filter(version != selected_version())
-        
         edited_solutions <- modrval$solutions |>
           dplyr::filter(version == selected_version()) |>
           dplyr::select(path, test, type, interrogation) |>
           base::unique()
-        
         edition <- rhandsontable::hot_to_r(input$edit_solutions) |>
           dplyr::mutate_if(base::is.factor, base::as.character) |>
           dplyr::select(
@@ -850,12 +850,10 @@ grading_server <- function(id, test, tree, course_data, course_paths){
           )) |>
           dplyr::filter(keep == 1) |>
           dplyr::select(base::names(unchanged_solutions))
-        
         solutions <- dplyr::bind_rows(
           unchanged_solutions,
           edition
         )
-        
         compiled <- compile_grading(
           modrval$test_parameters,
           solutions,
@@ -863,8 +861,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
           modrval$closed_answers,
           modrval$numeric_answers,
           modrval$open_answers,
-          modrval$answers,
-          parameter_change = selected_question()
+          modrval$answers
         )
         modrval$solutions <- compiled$solutions
         modrval$scoring <- compiled$scoring
@@ -887,15 +884,43 @@ grading_server <- function(id, test, tree, course_data, course_paths){
       ##########################################################################
       # Results tab
       
+      shiny::observe({
+        shiny::req(!base::is.null(modrval$student_grades))
+        shiny::updateNumericInput(
+          session,
+          "defpass",
+          value = (0.5*base::max(modrval$student_grades$points))
+        )
+      })
       
-      #output$testinfoboxes <- shiny::renderUI({
-      #  
-      #})
+      output$testmetrics <- shiny::renderUI({
+        shiny::req(!base::is.null(modrval$student_grades))
+        shiny::req(!base::is.null(input$defpass))
+        count <- base::length(base::unique(modrval$student_grades$student))
+        minimum <- base::round(base::min(stats::na.omit(modrval$student_grades$grade)),2)
+        ave <- base::round(base::mean(stats::na.omit(modrval$student_grades$grade)),2)
+        med <- base::round(stats::median(stats::na.omit(modrval$student_grades$grade)),2)
+        maximum <- base::round(base::max(stats::na.omit(modrval$student_grades$grade)),2)
+        range <- minimum-minimum
+        stddev <- base::round(stats::sd(stats::na.omit(modrval$student_grades$grade)),2)
+        passrate <- base::round(100*base::mean(stats::na.omit(modrval$student_grades$grade) >= input$defpass),2)
+        base::list(
+          shinydashboard::valueBox(count, "Students", shiny::icon("users"), "maroon", width = 2),
+          shinydashboard::valueBox(minimum, "Minimum", shiny::icon("sort-down"), "red", width = 1),
+          shinydashboard::valueBox(ave, "Mean", shiny::icon("ruler-horizontal"), "orange", width = 2),
+          shinydashboard::valueBox(med, "Median", shiny::icon("circle-half-stroke"), "yellow", width = 2),
+          shinydashboard::valueBox(maximum, "Maximum", shiny::icon("sort-up"), "green", width = 1),
+          shinydashboard::valueBox(stddev, "Standard deviation", shiny::icon("arrows-left-right"), "navy", width = 2),
+          shinydashboard::valueBox(passrate, "Pass", shiny::icon("percent"), "purple", width = 2)
+        )
+      })
       
-      
-      #output$testdistribution <- shiny::renderPlot({
-      #  
-      #})
+      output$testdistribution <- shiny::renderPlot({
+        shiny::req(!base::is.null(modrval$student_grades))
+        shiny::req(!base::is.null(input$defpass))
+        shiny::req(!base::is.null(input$defhistbreaks))
+        chartR::draw_grade_distribution(modrval$student_grades, input$defpass, input$defhistbreaks)
+      })
       
       
     }
