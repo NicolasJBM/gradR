@@ -362,8 +362,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         record_solution <- FALSE
         base::suppressWarnings(
           shiny::withMathJax(shiny::HTML(knitr::knit2html(
-            text = base::readLines(filepath),
-            fragment.only = TRUE, quiet = TRUE
+            text = base::readLines(filepath), quiet = TRUE, template = FALSE
           )))
         )
       })
