@@ -24,6 +24,21 @@ write_compiled <- function(
   
   path <- NULL
   data <- NULL
+  correct <- NULL
+  document <- NULL
+  explanation <- NULL
+  interrogation <- NULL
+  item <- NULL
+  keywords <- NULL
+  language <- NULL
+  letter <- NULL
+  modifications <- NULL
+  number <- NULL
+  proposition <- NULL
+  test <- NULL
+  type <- NULL
+  value <- NULL
+  weight <- NULL
   
   if (write_parameters){
     test_parameters <- compiled$test_parameters
@@ -35,24 +50,22 @@ write_compiled <- function(
   
   if (write_solutions){
     compiled$solutions |>
+      dplyr::select(
+        path,
+        test, version, number, letter, item, type, document, language,
+        modifications, interrogation, proposition,
+        value, scale, explanation, keywords, correct, weight
+      ) |>
       dplyr::group_by(path) |>
       tidyr::nest() |>
       dplyr::mutate(
         export = purrr::map2(
           data, path, function(x,y){
             utils::write.csv(x, y, row.names = FALSE)
-            return("OK")
           }
         )
       )
   }
-  
-  compiled$solutions |>
-    dplyr::group_by(path) |>
-    tidyr::nest() |>
-    dplyr::mutate(data = purrr::map2(path, data, function(x,y){
-      utils::write.csv(y, x, row.names = FALSE)
-    }))
   
   utils::write.csv(
     compiled$answers,

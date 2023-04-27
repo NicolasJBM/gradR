@@ -175,7 +175,7 @@ compile_grading <- function(
     ) |>
     dplyr::ungroup() |>
     dplyr::mutate(
-      standard_weight = points*duplication*(correct/nbrcorrect-penalty*(1-correct)/nbrincorrect)
+      standard_weight = points*duplication*(correct/nbrcorrect-penalty*(1-correct)/max(1,nbrincorrect))
     ) |>
     dplyr::select(version, item, letter, standard_weight)
   
@@ -285,6 +285,10 @@ compile_grading <- function(
     dplyr::left_join(
       dplyr::select(answers, student, version, letter, checked),
       by = c("student", "version", "letter") 
+    ) |>
+    dplyr::right_join(
+      base::unique(dplyr::select(solutions, version, letter)),
+      by = c("version","letter")
     ) |>
     dplyr::mutate(
       checked = dplyr::case_when(

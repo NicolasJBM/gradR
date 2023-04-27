@@ -144,6 +144,21 @@ grading_server <- function(id, test, tree, course_data, course_paths){
             tidyr::unnest(solutions)
         } else solutions <- NA
         
+        # Students
+        students <- base::paste0(
+          test_path, "/6_students/student_list.csv"
+        )
+        if (base::file.exists(students)){
+          students <- readr::read_csv(students, col_types = "ccccc") |>
+            dplyr::mutate(enrolled = 1)
+        } else {
+          students <- tibble::tibble(
+            student = base::character(0), team = base::character(0),
+            firstname = base::character(0), lastname = base::character(0),
+            email = base::character(0), enrolled = base::numeric(0)
+          )
+        }
+        
         # Raw answers
         closed_answers <- base::paste0(
           test_path, "/7_answers/closed.csv"
@@ -208,21 +223,6 @@ grading_server <- function(id, test, tree, course_data, course_paths){
           )
         }
         
-        # Students
-        students <- base::paste0(
-          test_path, "/6_students/student_list.csv"
-        )
-        if (base::file.exists(students)){
-          students <- readr::read_csv(students, col_types = "ccccc") |>
-            dplyr::mutate(enrolled = 1)
-        } else {
-          students <- tibble::tibble(
-            student = base::character(0), team = base::character(0),
-            firstname = base::character(0), lastname = base::character(0),
-            email = base::character(0), enrolled = base::numeric(0)
-          )
-        }
-        
         # Compiled answers
         answers <- base::paste0(
           test_path, "/8_results/answers.csv"
@@ -270,7 +270,8 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         shiny::req(
           (base::nrow(stats::na.omit(closed_answers)) +
             base::nrow(stats::na.omit(numeric_answers)) +
-            base::nrow(stats::na.omit(open_answers))) > 0)
+            base::nrow(stats::na.omit(open_answers))) > 0
+        )
         
         compiled <- compile_grading(
           test_parameters,
@@ -354,12 +355,9 @@ grading_server <- function(id, test, tree, course_data, course_paths){
             version == selected_version(),
             student == selected_student()
           )
-        filepath <- base::paste0(modrval$test_path, "/2_versions/", selected_version())
-        test_parameters <- modrval$test_parameters
-        base::load(course_paths()$databases$propositions)
-        base::load(course_paths()$databases$translations)
-        docformat <- "html"
-        record_solution <- FALSE
+        filepath <- base::paste0(modrval$test_path, "/5_examination/mdfiles/", selected_version())
+        filepath <- stringr::str_replace(filepath, "Rmd$", "md")
+        shiny::req(base::file.exists(filepath))
         base::suppressWarnings(
           shiny::withMathJax(shiny::HTML(knitr::knit2html(
             text = base::readLines(filepath), quiet = TRUE, template = FALSE
@@ -380,7 +378,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
             modrval$solutions, version, number, letter, scale,
             proposition, interrogation, keywords, correct
           )), by = c("version","letter")) |>
-          dplyr::arrange(number) |>
+          dplyr::arrange(letter) |>
           dplyr::select(letter, proposition, scale, checked, correct) |>
           base::unique()
         ui <- base::list()
@@ -494,6 +492,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         criteria <- modrval$solutions |>
           dplyr::filter(version == selected_version()) |>
           dplyr::select(proposition) |>
+          dplyr::arrange(letter) |>
           base::unlist() |> base::as.character() |>
           base::unique()
         shiny::checkboxGroupInput(
@@ -503,69 +502,71 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         )
       })
       
-      shiny::observeEvent(input$save_checks, {
-        shiny::req(!base::is.null(selected_version()))
-        versiontype <- modrval$test_parameters |>
-          dplyr::filter(version == selected_version()) |>
-          dplyr::left_join(
-            dplyr::select(course_data()$documents, question = file, type),
-            by = "question"
-          )
-        versiontype <- versiontype$type[[1]]
-        if (!(versiontype %in% c("Essay","Problem"))){
-          shinyalert::shinyalert("No change allowed!", "Answers to multiple-choice and numeric questions cannot be modified; this form is meant to be changed only to grade open-ended answers.", "error")
-        } else {
-          checkinput <- base::names(input)
-          checkinput <- checkinput[stringr::str_detect(checkinput, "check_")]
-          nbr <- base::length(checkinput)
-          letters <- base::character(nbr)
-          checks <- base::character(nbr)
-          for (i in base::seq_len(nbr)){
-            letters[i] <- stringr::str_remove(checkinput[i], "check_")
-            checks[i] <- input[[checkinput[i]]]
-          }
-          update_answer <- tibble::tibble(
-              student = selected_student(),
-              test = modrval$test_name,
-              question = selected_question(), 
-              version = selected_version(),
-              letter = base::as.character(letters),
-              checked_chr = base::as.character(checks)
-            ) |>
-            dplyr::mutate(
-              checked = dplyr::case_when(
-                checked_chr == "1" ~ 1,
-                checked_chr == "TRUE" ~ 1,
-                checked_chr == "0.5" ~ 0.5,
-                checked_chr == "0" ~ 0,
-                checked_chr == "FALSE" ~ 0,
-                checked_chr == "-0.5" ~ -0.5,
-                TRUE ~ 0
-              )
-            ) |>
-            dplyr::select(-checked_chr) |>
-            dplyr::arrange(letter)
-          answers <- modrval$answers |>
-            dplyr::anti_join(update_answer, by = c("student","test","question","version")) |>
-            dplyr::bind_rows(update_answer) |>
-            dplyr::arrange(student, version, letter)
-          compiled <- compile_grading(
-            modrval$test_parameters,
-            modrval$solutions,
-            modrval$students,
-            modrval$closed_answers,
-            modrval$numeric_answers,
-            modrval$open_answers,
-            answers
-          )
-          modrval$open_answers <- compiled$open_answers
-          modrval$answers <- compiled$answers
-          modrval$scoring <- compiled$scoring
-          modrval$results <- compiled$results
-          modrval$question_grades <- compiled$question_grades
-          modrval$student_grades <- compiled$student_grades
-          write_compiled(compiled, modrval$test_path)
-          shinyalert::shinyalert("Saved!", "Grading has been updated.", "success")
+      shiny::observeEvent(
+        {input$save_checks | input$update_solutions | input$update_quest_param},
+        {
+          shiny::req(!base::is.null(selected_version()))
+          versiontype <- modrval$test_parameters |>
+            dplyr::filter(version == selected_version()) |>
+            dplyr::left_join(
+              dplyr::select(course_data()$documents, question = file, type),
+              by = "question"
+            )
+          versiontype <- versiontype$type[[1]]
+          if (!(versiontype %in% c("Essay","Problem"))){
+            shinyalert::shinyalert("No change allowed!", "Answers to multiple-choice and numeric questions cannot be modified; this form is meant to be changed only to grade open-ended answers.", "error")
+          } else {
+            checkinput <- base::names(input)
+            checkinput <- checkinput[stringr::str_detect(checkinput, "check_")]
+            nbr <- base::length(checkinput)
+            letters <- base::character(nbr)
+            checks <- base::character(nbr)
+            for (i in base::seq_len(nbr)){
+              letters[i] <- stringr::str_remove(checkinput[i], "check_")
+              checks[i] <- input[[checkinput[i]]]
+            }
+            update_answer <- tibble::tibble(
+                student = selected_student(),
+                test = modrval$test_name,
+                question = selected_question(), 
+                version = selected_version(),
+                letter = base::as.character(letters),
+                checked_chr = base::as.character(checks)
+              ) |>
+              dplyr::mutate(
+                checked = dplyr::case_when(
+                  checked_chr == "1" ~ 1,
+                  checked_chr == "TRUE" ~ 1,
+                  checked_chr == "0.5" ~ 0.5,
+                  checked_chr == "0" ~ 0,
+                  checked_chr == "FALSE" ~ 0,
+                  checked_chr == "-0.5" ~ -0.5,
+                  TRUE ~ 0
+                )
+              ) |>
+              dplyr::select(-checked_chr) |>
+              dplyr::arrange(letter)
+            answers <- modrval$answers |>
+              dplyr::anti_join(update_answer, by = c("student","test","question","version")) |>
+              dplyr::bind_rows(update_answer) |>
+              dplyr::arrange(student, version, letter)
+            compiled <- compile_grading(
+              modrval$test_parameters,
+              modrval$solutions,
+              modrval$students,
+              modrval$closed_answers,
+              modrval$numeric_answers,
+              modrval$open_answers,
+              answers
+            )
+            modrval$open_answers <- compiled$open_answers
+            modrval$answers <- compiled$answers
+            modrval$scoring <- compiled$scoring
+            modrval$results <- compiled$results
+            modrval$question_grades <- compiled$question_grades
+            modrval$student_grades <- compiled$student_grades
+            write_compiled(compiled, modrval$test_path)
+            shinyalert::shinyalert("Saved!", "Grading has been updated.", "success")
         }
       })
       
@@ -576,6 +577,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
       
       question_statistics <- shiny::reactive({
         shiny::req(!base::is.null(modrval$results))
+        shiny::req(base::length(base::unique(modrval$test_parameters$question) >= 3))
         shinybusy::show_modal_spinner(
           spin = "orbit",
           text = "Please wait while question statistics are computed..."
@@ -627,19 +629,20 @@ grading_server <- function(id, test, tree, course_data, course_paths){
       item_statistics <- shiny::reactive({
         input$refresh_itemstats
         shiny::isolate({
+          shiny::req(!base::is.null(modrval$results))
+          prelimcheck <- modrval$results |>
+            dplyr::select(student, question, item) |>
+            stats::na.omit() |>
+            base::unique()
+          nbrstudents <- base::length(base::unique(prelimcheck$student))
+          nbritems <- base::nrow(prelimcheck)
+          shiny::req(nbrstudents >= 10)
+          shiny::req(nbritems >= 3)
+          
           shinybusy::show_modal_spinner(
             spin = "orbit",
             text = "Please wait while item statistics are computed..."
           )
-          shiny::req(!base::is.null(modrval$results))
-          prelimcheck <- modrval$results |>
-            dplyr::select(student, question) |>
-            stats::na.omit() |>
-            base::unique()
-          nbrstudents <- base::length(base::unique(prelimcheck$student))
-          nbrquestions <- base::length(base::unique(prelimcheck$question))
-          shiny::req(nbrstudents >= 20)
-          shiny::req(nbrquestions >= 5)
           itemstats <- modrval$results |>
             tidyr::unite("observation", student, attempt, sep = "-") |>
             tidyr::unite("code", item, language, sep = "_") |>
@@ -769,7 +772,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
           ) |>
           dplyr::left_join(slctnbr, by = c("version","letter")) |>
           dplyr::left_join(show_item_statistics, by = c("item","language")) |>
-          dplyr::arrange(number) |>
+          dplyr::arrange(proposition) |>
           rhandsontable::rhandsontable(
             width = "95%", rowHeaders = NULL, stretchH = "all"
           ) |>
@@ -785,8 +788,6 @@ grading_server <- function(id, test, tree, course_data, course_paths){
             allowRowEdit = FALSE, allowColEdit = FALSE
           )
       })
-      
-      
       
       shiny::observeEvent(input$update_quest_param, {
         shiny::req(!base::is.null(selected_question()))
