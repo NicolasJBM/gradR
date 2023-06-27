@@ -12,21 +12,34 @@ grading_ui <- function(id){
   ns <- shiny::NS(id)
   base::list(
     shiny::fluidRow(
+      
       shiny::column(
-        4,
-        editR::selection_ui(ns("select_question"))
+        2,
+        shinyWidgets::radioGroupButtons(
+          inputId = ns("focus"),
+          label = NULL, 
+          choices = c(
+            `<i class='fa fa-user'> Student-centric </i>` = "student",
+            `<i class='fa fa-question-circle'> Question-centric </i>` = "question"
+          ), selected = base::character(0),
+          status = "primary", justified = TRUE,
+          size = "normal", direction = "vertical",
+          checkIcon = base::list(yes = shiny::icon("check"))
+        )
       ),
       shiny::column(
-        4,
-        editR::selection_ui(ns("select_version"))
-      ),
-      shiny::column(
-        4,
-        editR::selection_ui(ns("select_student"))
+        10,
+        shiny::uiOutput(ns("filters"))
       )
     ),
     shinydashboard::tabBox(
       side = "left", width = "100%",
+      shiny::tabPanel(
+        title = shiny::span(
+          shiny::icon("chalkboard"), "Resources",
+          title = "Resources to help you grade students.",
+        )
+      ),
       shiny::tabPanel(
         title = shiny::tagList(
           shiny::icon("tasks"),
@@ -67,62 +80,20 @@ grading_ui <- function(id){
         ),
         shiny::fluidRow(
           shiny::column(
-            9,
-            shiny::fluidRow(shiny::uiOutput(ns("question_infoboxes"))),
-            shiny::fluidRow(
-              shiny::column(
-                12,
-                shiny::uiOutput(ns("edit_question_parameters"))
-              )
-            ),
-            shiny::fluidRow(
-              shiny::column(
-                8,
-                shiny::actionButton(
-                  ns("refresh_itemstats"), "Refresh item statistics", icon = shiny::icon("rotate"),
-                  style = "background-color:#006699;color:#FFF;width:100%;height:50px;margin-top:5px;"
-                )
-              ),
-              shiny::column(
-                4,
-                shiny::actionButton(
-                  ns("update_solutions"), "Save solutions", icon = shiny::icon("save"),
-                  style = "background-color:#006600;color:#FFF;width:100%;height:50px;margin-top:5px;"
-                )
-              )
-            )
-          ),
-          shiny::column(
-            3,
-            shiny::plotOutput(ns("question_curve"))
-          )
-        ),
-        shiny::fluidRow(
-          shiny::column(
             12,
+            shiny::uiOutput(ns("edit_question_parameters")),
             rhandsontable::rHandsontableOutput(ns("edit_solutions"))
           )
         )
       ),
       shiny::tabPanel(
         title = shiny::tagList(
-          shiny::icon("magnifying-glass-chart"), shiny::span(
+          shiny::icon("heart-pulse"), shiny::span(
             "Diagnostics",
             title = "Check grading consistency across questions and students."
           )
         ),
-        shiny::fluidRow(
-          shiny::column(
-            4
-            
-          ),
-          shiny::column(
-            4
-          ),
-          shiny::column(
-            4
-          )
-        )
+        shiny::uiOutput(ns("diagnostics"))
       ),
       shiny::tabPanel(
         title = shiny::tagList(

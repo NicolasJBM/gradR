@@ -112,6 +112,8 @@ grading_server <- function(id, test, tree, course_data, course_paths){
       success <- NULL
       given <- NULL
       keep <- NULL
+      guess <- NULL
+      grade <- NULL
       
       ##########################################################################
       # Loading
@@ -273,7 +275,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
             base::nrow(stats::na.omit(open_answers))) > 0
         )
         
-        compiled <- compile_grading(
+        compiled <- gradR::compile_grading(
           test_parameters,
           solutions,
           students,
@@ -297,61 +299,127 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         modrval$question_grades <- compiled$question_grades
         modrval$student_grades <- compiled$student_grades
         
-        write_compiled(compiled, test_path)
+        gradR::write_compiled(compiled, test_path)
+        
+        shinyWidgets::updateSwitchInput(
+          session,
+          "studentfocus",
+          value = FALSE
+        )
         
       })
       
       
       ##########################################################################
       # Selection
+      
+      output$filters <- shiny::renderUI({
+        shiny::req(base::length(input$focus) > 0)
+        if (input$focus == "student") {
+          shiny::fluidRow(
+            shiny::column(
+              4,
+              editR::selection_ui(ns("select_student"), "Student-attempt:")
+            ),
+            shiny::column(
+              4,
+              editR::selection_ui(ns("select_version"), "Version:")
+            ),
+            shiny::column(
+              4,
+              editR::selection_ui(ns("select_question"), "Question:")
+            )
+          )
+        } else {
+          shiny::fluidRow(
+            shiny::column(
+              4,
+              editR::selection_ui(ns("select_question"), "Question:")
+            ),
+            shiny::column(
+              4,
+              editR::selection_ui(ns("select_version"), "Version:")
+            ),
+            shiny::column(
+              4,
+              editR::selection_ui(ns("select_student"), "Student-attempt:")
+            )
+          )
+        }
+        
+      })
+      
       questions <- shiny::reactive({
+        shiny::req(!base::is.null(modrval$answers))
+        shiny::req(base::nrow(modrval$answers) > 0)
         shiny::req(base::length(test()) > 1)
-        shiny::isolate({
-          shiny::req(!base::is.null(modrval$answers))
-          shiny::req(base::nrow(modrval$answers) > 0)
+        shiny::req(base::length(input$focus) > 0)
+        if (input$focus == "student") {
+          shiny::req(!base::is.null(selected_version()))
+          questions <- modrval$answers |>
+            dplyr::filter(version %in% selected_version()) |>
+            dplyr::select(question) |> base::unique() |>
+            base::unlist() |> base::as.character()
+        } else {
           questions <- base::unique(modrval$answers$question)
-        })
+        }
         questions
       })
       
       selected_question <- editR::selection_server("select_question", questions)
       
       versions <- shiny::reactive({
-        shiny::req(!base::is.null(selected_question()))
-        shiny::isolate({
+        shiny::req(base::length(input$focus) > 0)
+        if (input$focus == "student") {
+          shiny::req(!base::is.null(selected_student()))
+          shiny::req(base::nrow(modrval$answers) > 0)
+          versions <- modrval$answers |>
+            dplyr::filter(student == selected_student()) |>
+            dplyr::select(version) |> base::unique() |>
+            base::unlist() |> base::as.character()
+        } else {
+          shiny::req(!base::is.null(selected_question()))
           shiny::req(base::nrow(modrval$answers) > 0)
           versions <- modrval$answers |>
             dplyr::filter(question == selected_question()) |>
             dplyr::select(version) |> base::unique() |>
             base::unlist() |> base::as.character()
-        })
+        }
         versions
       })
       
       selected_version <- editR::selection_server("select_version", versions)
       
       students <- shiny::reactive({
-        shiny::req(!base::is.null(selected_version()))
-        shiny::isolate({
-          shiny::req(base::nrow(modrval$answers) > 0)
+        shiny::req(base::length(input$focus) > 0)
+        shiny::req(!base::is.null(modrval$answers))
+        shiny::req(base::nrow(modrval$answers) > 0)
+        shiny::req(base::length(test()) > 1)
+        if (input$focus == "student") {
+          students <- base::unique(modrval$answers$student)
+        } else {
+          shiny::req(!base::is.null(selected_version()))
           students <- modrval$answers |>
-            dplyr::filter(version == selected_version()) |>
+            dplyr::filter(version %in% selected_version()) |>
             dplyr::select(student) |> base::unique() |>
             base::unlist() |> base::as.character()
-        })
+        }
         students
       })
       
       selected_student <- editR::selection_server("select_student", students)
       
       
+      
       ##########################################################################
       # Answer tab
       output$viewversion <- shiny::renderUI({
+        shiny::req(!base::is.null(selected_question()))
         shiny::req(!base::is.null(selected_version()))
         shiny::req(!base::is.null(selected_student()))
         selected <- modrval$answers |>
           dplyr::filter(
+            question == selected_question(),
             version == selected_version(),
             student == selected_student()
           )
@@ -502,9 +570,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         )
       })
       
-      shiny::observeEvent(
-        {input$save_checks | input$update_solutions | input$update_quest_param},
-        {
+      shiny::observeEvent(input$save_checks, {
           shiny::req(!base::is.null(selected_version()))
           versiontype <- modrval$test_parameters |>
             dplyr::filter(version == selected_version()) |>
@@ -550,7 +616,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
               dplyr::anti_join(update_answer, by = c("student","test","question","version")) |>
               dplyr::bind_rows(update_answer) |>
               dplyr::arrange(student, version, letter)
-            compiled <- compile_grading(
+            compiled <- gradR::compile_grading(
               modrval$test_parameters,
               modrval$solutions,
               modrval$students,
@@ -565,7 +631,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
             modrval$results <- compiled$results
             modrval$question_grades <- compiled$question_grades
             modrval$student_grades <- compiled$student_grades
-            write_compiled(compiled, modrval$test_path)
+            gradR::write_compiled(compiled, modrval$test_path)
             shinyalert::shinyalert("Saved!", "Grading has been updated.", "success")
         }
       })
@@ -573,16 +639,11 @@ grading_server <- function(id, test, tree, course_data, course_paths){
       
       
       ##########################################################################
-      # Solution tab
+      # Computation of statistics
       
-      question_statistics <- shiny::reactive({
+      basis_for_main_statistics <- shiny::reactive({
         shiny::req(!base::is.null(modrval$results))
-        shiny::req(base::length(base::unique(modrval$test_parameters$question) >= 3))
-        shinybusy::show_modal_spinner(
-          spin = "orbit",
-          text = "Please wait while question statistics are computed..."
-        )
-        questats <- modrval$results |>
+        modrval$results |>
           tidyr::unite("observation", student, attempt, sep = "-") |>
           dplyr::select(observation, code = question, points, earned) |>
           dplyr::group_by(observation, code) |>
@@ -594,7 +655,18 @@ grading_server <- function(id, test, tree, course_data, course_paths){
           dplyr::mutate(
             correct = base::as.numeric(earned > 0.5 * points)
           ) |>
-          dplyr::select(observation, code, correct) |>
+          dplyr::select(observation, code, earned, correct)
+      })
+      
+      question_statistics <- shiny::reactive({
+        shiny::req(!base::is.null(basis_for_main_statistics()))
+        shiny::req(base::length(base::unique(basis_for_main_statistics()$code) >= 3))
+        shinybusy::show_modal_spinner(
+          spin = "orbit",
+          text = "Please wait while question statistics are computed..."
+        )
+        questats <- basis_for_main_statistics() |>
+          dplyr::select(-earned) |>
           teachR::statistics_get_parameters(
             model_formula = "correct ~ success + proficiency",
             minobs = 10
@@ -609,21 +681,6 @@ grading_server <- function(id, test, tree, course_data, course_paths){
           teachR::statistics_assign_colors(type = "questions") |>
           dplyr::rename(file = code)
         base::list(document_parameters = document_parameters)
-      })
-      
-      output$question_infoboxes <- shiny::renderUI({
-        shiny::req(!base::is.null(selected_question()))
-        shiny::req(!base::is.null(question_data()))
-        editR::make_infobox(question_data, selected_question(), "results")
-      })
-      
-      output$question_curve <- shiny::renderPlot({
-        shiny::req(!base::is.null(question_statistics()))
-        shiny::req(!base::is.null(selected_question()))
-        shiny::req(selected_question() %in% question_statistics()$models$code)
-        selected_model <- question_statistics()$models |>
-          dplyr::filter(code == selected_question())
-        chartR::display_curve(selected_model$data[[1]])
       })
       
       item_statistics <- shiny::reactive({
@@ -664,6 +721,10 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         })
       })
       
+      
+      ##########################################################################
+      # Solution tab
+      
       output$edit_question_parameters <- shiny::renderUI({
         shiny::req(!base::is.null(selected_question()))
         shiny::req(selected_question() %in% modrval$answers$question)
@@ -673,14 +734,14 @@ grading_server <- function(id, test, tree, course_data, course_paths){
           base::unique()
         shiny::fluidRow(
           shiny::column(
-            4,
+            2,
             shiny::numericInput(
               ns("new_points"), "Points", value = selected$points[1],
               width = "100%"
             )
           ),
           shiny::column(
-            2,
+            1,
             shinyWidgets::switchInput(
               inputId = ns("new_partial_credits"),
               label = "Partial credits?",
@@ -690,7 +751,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
             )
           ),
           shiny::column(
-            2,
+            1,
             shinyWidgets::switchInput(
               inputId = ns("new_penalty"),
               label = "Apply penalty?",
@@ -700,10 +761,25 @@ grading_server <- function(id, test, tree, course_data, course_paths){
             )
           ),
           shiny::column(
-            4,
+            2,
             shiny::actionButton(
               ns("update_quest_param"), "Save parameters", icon = shiny::icon("save"),
               style = "background-color:#006600;color:#FFF;width:100%;height:50px;margin-top:5px;"
+            )
+          ),
+          shiny::column(2),
+          shiny::column(
+            2,
+            shiny::actionButton(
+              ns("update_solutions"), "Save solutions", icon = shiny::icon("save"),
+              style = "background-color:#006600;color:#FFF;width:100%;height:50px;margin-top:5px;"
+            )
+          ),
+          shiny::column(
+            2,
+            shiny::actionButton(
+              ns("refresh_itemstats"), "Refresh item statistics", icon = shiny::icon("rotate"),
+              style = "background-color:#006699;color:#FFF;width:100%;height:50px;margin-top:5px;"
             )
           )
         )
@@ -713,8 +789,13 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         shiny::req(!base::is.null(selected_version()))
         shiny::req(!base::is.null(modrval$answers))
         shiny::req(!base::is.null(modrval$solutions))
+        
         selected_solutions <- modrval$solutions |>
           dplyr::filter(version == selected_version())
+        
+        type <- base::unique(selected_solutions$type)
+        
+        # To get frequencies of answers
         shiny::isolate({
           shiny::req(!base::is.null(modrval$answers))
           shiny::req(!base::is.null(selected_student()))
@@ -725,11 +806,11 @@ grading_server <- function(id, test, tree, course_data, course_paths){
             )
           selected_version <- selected_version$version[1]
         })
-        
-        slctnbr <- modrval$answers |>
+        checknbr <- modrval$answers |>
           dplyr::group_by(version, letter) |>
-          dplyr::summarise(given = base::sum(checked))
+          dplyr::summarise(check = base::sum(checked))
         
+        # To get item statistics
         if (!base::is.null(item_statistics())) {
           show_item_statistics <- item_statistics()$parameters |>
             tidyr::separate(code, into = c("item","language"), sep = "_") |>
@@ -743,50 +824,72 @@ grading_server <- function(id, test, tree, course_data, course_paths){
           )
         }
         
-        if (base::length(stats::na.omit(selected_solutions$number)) > 0){
-          lastitem <- base::max(selected_solutions$number, na.rm = TRUE) + 1
-        } else {
-          lastitem <- 1
-        }
-        
-        new_row <- tibble::tibble(
-          version = selected_version,
-          language = selected_solutions$language[1],
-          number = lastitem, letter = letters[lastitem],
-          modifications = 0, value = 0, correct = 0, weight = 0,
-          remove = TRUE
-        )
-        
-        selected_solutions |>
+        selected_solutions <- selected_solutions |>
           dplyr::select(
             version, item, language, number, letter, document,
             modifications, proposition, value, scale, explanation,
             keywords, correct, weight
           ) |>
-          dplyr::mutate(remove = FALSE) |>
-          dplyr::bind_rows(new_row) |>
           dplyr::mutate(
             scale = base::factor(scale, levels = c(
               "logical","qualitative","percentage"
             ))
           ) |>
-          dplyr::left_join(slctnbr, by = c("version","letter")) |>
-          dplyr::left_join(show_item_statistics, by = c("item","language")) |>
-          dplyr::arrange(proposition) |>
-          rhandsontable::rhandsontable(
-            width = "95%", rowHeaders = NULL, stretchH = "all"
-          ) |>
-          rhandsontable::hot_col(c(1,2,3,4,5,16,17,18), readOnly = TRUE) |>
-          rhandsontable::hot_cols(
-            colWidths = c(
-              "5%","5%","3%","3%","2%","5%","3%","15%",
-              "3%","7%","21%","10%","3%","3%",
-              "3%","3%","3%","3%"
-            )
-          ) |>
-          rhandsontable::hot_context_menu(
-            allowRowEdit = FALSE, allowColEdit = FALSE
+          dplyr::left_join(checknbr, by = c("version","letter")) |>
+          dplyr::left_join(show_item_statistics, by = c("item","language"))
+        
+        
+        if (type %in% c("Essay","Problem")){
+          if (base::length(stats::na.omit(selected_solutions$number)) > 0){
+            lastitem <- base::max(selected_solutions$number, na.rm = TRUE) + 1
+          } else {
+            lastitem <- 1
+          }
+          new_row <- tibble::tibble(
+            version = selected_version,
+            language = selected_solutions$language[1],
+            number = lastitem, letter = letters[lastitem],
+            modifications = 0, value = 0, correct = 0, weight = 0,
+            check = 0, success = 0, discrimination = 0, remove = TRUE
           )
+          selected_solutions |>
+            dplyr::mutate(remove = FALSE) |>
+            dplyr::bind_rows(new_row) |>
+            dplyr::arrange(proposition) |>
+            rhandsontable::rhandsontable(
+              width = "95%", rowHeaders = NULL, stretchH = "all"
+            ) |>
+            rhandsontable::hot_col(c(1,2,3,4,5,16,17,18), readOnly = TRUE) |>
+            rhandsontable::hot_cols(
+              colWidths = c(
+                "5%","5%","3%","3%","2%","5%","3%","15%",
+                "3%","7%","21%","10%","3%","3%",
+                "3%","3%","3%","3%"
+              ),
+              manualColumnResize = TRUE
+            ) |>
+            rhandsontable::hot_context_menu(
+              allowRowEdit = FALSE, allowColEdit = FALSE
+            )
+        } else {
+          selected_solutions |>
+            dplyr::arrange(letter) |>
+            rhandsontable::rhandsontable(
+              width = "95%", rowHeaders = NULL, stretchH = "all"
+            ) |>
+            rhandsontable::hot_col(c(1,2,3,4,5,7,8,10,15,16,17), readOnly = TRUE) |>
+            rhandsontable::hot_cols(
+              colWidths = c(
+                "5%","5%","3%","3%","2%","5%","3%","15%",
+                "3%","7%","21%","10%","3%","3%",
+                "3%","3%","3%"
+              ),
+              manualColumnResize = TRUE
+            ) |>
+            rhandsontable::hot_context_menu(
+              allowRowEdit = FALSE, allowColEdit = FALSE
+            )
+        }
       })
       
       shiny::observeEvent(input$update_quest_param, {
@@ -798,7 +901,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
           test_parameters$question, selected_question())] <- input$new_partial_credits
         test_parameters$penalty[stringr::str_detect(
           test_parameters$question, selected_question())] <- input$new_penalty
-        compiled <- compile_grading(
+        compiled <- gradR::compile_grading(
           test_parameters,
           modrval$solutions,
           modrval$students,
@@ -813,9 +916,8 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         modrval$results <- compiled$results
         modrval$question_grades <- compiled$question_grades
         modrval$student_grades <- compiled$student_grades
-        write_compiled(compiled, modrval$test_path, TRUE, FALSE)
+        gradR::write_compiled(compiled, modrval$test_path, TRUE, FALSE)
         shinyalert::shinyalert("Saved!", "Question parameters have been updated.", "success")
-        
       })
       
       shiny::observeEvent(input$update_solutions, {
@@ -830,7 +932,11 @@ grading_server <- function(id, test, tree, course_data, course_paths){
           dplyr::select(path, test, type, interrogation) |>
           base::unique()
         edition <- rhandsontable::hot_to_r(input$edit_solutions) |>
-          dplyr::mutate_if(base::is.factor, base::as.character) |>
+          dplyr::mutate_if(base::is.factor, base::as.character)
+        
+        if (!("remove" %in% base::names(edition))) edition$remove <- FALSE
+        
+        edition <- edition |>
           dplyr::select(
             version, document, language,
             item, number, letter,
@@ -843,18 +949,13 @@ grading_server <- function(id, test, tree, course_data, course_paths){
             type = edited_solutions$type[1],
             interrogation = edited_solutions$interrogation[1]
           ) |>
-          dplyr::mutate(keep = dplyr::case_when(
-            type %in% c("Essay","Problem") & remove == TRUE ~ 0,
-            type %in% c("Statements","Alternatives","Computation") & base::is.na(item) ~ 0,
-            TRUE ~ 1
-          )) |>
-          dplyr::filter(keep == 1) |>
+          dplyr::filter(remove == FALSE) |>
           dplyr::select(base::names(unchanged_solutions))
         solutions <- dplyr::bind_rows(
           unchanged_solutions,
           edition
         )
-        compiled <- compile_grading(
+        compiled <- gradR::compile_grading(
           modrval$test_parameters,
           solutions,
           modrval$students,
@@ -868,7 +969,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         modrval$results <- compiled$results
         modrval$question_grades <- compiled$question_grades
         modrval$student_grades <- compiled$student_grades
-        write_compiled(compiled, modrval$test_path, FALSE, TRUE)
+        gradR::write_compiled(compiled, modrval$test_path, FALSE, TRUE)
         shinyalert::shinyalert("Saved!", "Solutions have been updated.", "success")
       })
       
@@ -877,7 +978,215 @@ grading_server <- function(id, test, tree, course_data, course_paths){
       ##########################################################################
       # Diagnostics tab
       
+      allscores <- shiny::reactive({
+        shiny::req(!base::is.null(basis_for_main_statistics()))
+        
+        shinybusy::show_modal_spinner(
+          spin = "orbit",
+          text = "Please wait while additional metrics are computed..."
+        )
+        grades <- dplyr::select(modrval$student_grades, student, grade) |>
+          dplyr::arrange(student)
+        
+        percentage <- basis_for_main_statistics() |>
+          dplyr::select(student = observation, correct) |>
+          dplyr::group_by(student) |>
+          dplyr::summarise(percentage = base::mean(correct, na.rm = TRUE), .groups = "drop") |>
+          dplyr::arrange(student)
+        
+        fa_basis <- basis_for_main_statistics() |>
+          dplyr::select(-correct) |>
+          dplyr::arrange(observation) |>
+          tidyr::pivot_wider(names_from = "code", values_from = "earned") |>
+          tibble::column_to_rownames("observation")
+        
+        irt_basis <- basis_for_main_statistics() |>
+          dplyr::select(-earned) |>
+          dplyr::arrange(observation) |>
+          tidyr::pivot_wider(names_from = "code", values_from = "correct") |>
+          tibble::column_to_rownames("observation")
+        
+        base::names(irt_basis) <- base::paste0(base::names(irt_basis), "_LGL")
+        
+        factana <- psych::fa(fa_basis)
+        irtana <- psych::irt.fa(irt_basis, plot = FALSE)
+        
+        scores <- tibble::tibble(
+          student = base::row.names(fa_basis),
+          fa = factana$scores[,1],
+          irt = psych::scoreIrt(irtana, irt_basis)$theta
+        )
+        
+        shinybusy::remove_modal_spinner()
+        
+        tibble::rownames_to_column(fa_basis, "student") |>
+          dplyr::left_join(tibble::rownames_to_column(irt_basis, "student"), by = "student") |>
+          dplyr::left_join(grades, by = "student") |>
+          dplyr::left_join(percentage, by = "student") |>
+          dplyr::left_join(scores, by = "student") |>
+          tibble::column_to_rownames("student") |>
+          dplyr::select(-dplyr::ends_with("_LGL"))
+      })
       
+      output$diagnostics <- shiny::renderUI({
+        shiny::req(base::length(input$focus) > 0)
+        
+        if (input$focus == "student"){
+          base::list(
+            shiny::fluidRow(
+              shiny::column(
+                2,
+                shiny::uiOutput(ns("parameters"))
+              ),
+              shiny::column(
+                4,
+                shiny::plotOutput(ns("density"), brush = ns("density_brush"))
+              ),
+              shiny::column(
+                4,
+                shiny::plotOutput(ns("score_differences"))
+              ),
+              shiny::column(
+                2,
+                shiny::dataTableOutput(ns("selection"))
+              )
+            )
+          )
+        } else {
+          base::list(
+            shiny::fluidRow(
+              shiny::column(
+                2,
+                shiny::tags$h4("Statistics for all questions")
+              ),
+              shiny::column(
+                4,
+                shiny::plotOutput(ns("question_map"))
+              ),
+              shiny::column(
+                4,
+                shiny::plotOutput(ns("question_correlations"))
+              ),
+              shiny::column(2)
+            ),
+            shiny::tags$hr(),
+            shiny::fluidRow(
+              shiny::column(
+                2,
+                shiny::tags$h4(base::paste0("Statistics for ", selected_question()))
+              ),
+              shiny::column(
+                4,
+                shiny::uiOutput(ns("question_infoboxes"))
+              ),
+              shiny::column(
+                4,
+                shiny::plotOutput(ns("question_curve"))
+              ),
+              shiny::column(2)
+            )
+          )
+        }
+      })
+      
+      # Question centric diagnostics
+      
+      output$question_map <- shiny::renderPlot({
+        shiny::req(!base::is.null(question_statistics()))
+        question_statistics()$parameters |>
+          dplyr::select(question = code, success, discrimination, guess) |>
+          chartR::draw_composition_scatterplot()
+      })
+      
+      output$question_correlations <- shiny::renderPlot({
+        shiny::req(!base::is.null(allscores()))
+        allscores() |>
+          chartR::draw_correlogram()
+      })
+      
+      output$question_infoboxes <- shiny::renderUI({
+        shiny::req(!base::is.null(selected_question()))
+        shiny::req(!base::is.null(question_data()))
+        editR::make_infobox(question_data, selected_question(), "results")
+      })
+      
+      output$question_curve <- shiny::renderPlot({
+        shiny::req(!base::is.null(question_statistics()))
+        shiny::req(!base::is.null(selected_question()))
+        shiny::req(selected_question() %in% question_statistics()$models$code)
+        selected_model <- question_statistics()$models |>
+          dplyr::filter(code == selected_question())
+        chartR::display_curve(selected_model$data[[1]])
+      })
+      
+      # Student centric diagnostics
+      
+      output$parameters <- shiny::renderUI({
+        shiny::req(!base::is.null(allscores()))
+        base::list(
+          shiny::selectInput(
+            ns("slctx"), "Select the x axis:",
+            choices = base::names(allscores()),
+            selected = "fa"
+          ),
+          shiny::selectInput(
+            ns("slcty"), "Select the y axis:",
+            choices = base::names(allscores()),
+            selected = "grade"
+          ),
+          shiny::sliderInput(
+            ns("slctbkgalpha"), "Background opacity:",
+            value = 0.4, min = 0, max = 1, step = 0.01
+          ),
+          shiny::sliderInput(
+            ns("slctpntalpha"), "Points opacity:",
+            value = 0.1, min = 0, max = 1, step = 0.01
+          ),
+          shiny::sliderInput(
+            ns("slctpntsize"), "Points size:",
+            value = 4, min = 0.5, max = 10, step = 0.5
+          )
+        )
+      })
+      
+      output$density <- shiny::renderPlot({
+        shiny::req(!base::is.null(input$slctx))
+        shiny::req(!base::is.null(input$slcty))
+        shiny::req(!base::is.null(input$slctbkgalpha))
+        shiny::req(!base::is.null(input$slctpntalpha))
+        shiny::req(!base::is.null(input$slctpntsize))
+        allscores() |>
+          chartR::draw_density_plot(
+          input$slctx, input$slcty,
+          input$slctbkgalpha, input$slctpntalpha, input$slctpntsize
+        )
+      })
+      
+      brushed_students <- shiny::reactive({
+        shiny::req(!base::is.null(allscores()))
+        shiny::req(!base::is.null(input$density_brush))
+        scores <- allscores()[,c(input$slctx, input$slcty)]
+        base::names(scores) <- c("x","y")
+        brushed <- scores |>
+          tibble::rownames_to_column("student") |>
+          shiny::brushedPoints(input$density_brush)
+        base::unique(brushed$student)
+      })
+      
+      output$score_differences <- shiny::renderPlot({
+        shiny::req(!base::is.null(allscores()))
+        shiny::req(!base::is.null(brushed_students()))
+        chartR::draw_score_differences(allscores(), brushed_students())
+      })
+      
+      output$selection <- shiny::renderDataTable({
+        shiny::req(!base::is.null(allscores()))
+        shiny::req(!base::is.null(brushed_students()))
+        allscores() |>
+          tibble::rownames_to_column("student") |>
+          dplyr::filter(student %in% brushed_students()) |>
+          dplyr::select(student, grade)
+      })
       
       
       
@@ -915,13 +1224,16 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         )
       })
       
+      
+      
+      
+      
       output$testdistribution <- shiny::renderPlot({
         shiny::req(!base::is.null(modrval$student_grades))
         shiny::req(!base::is.null(input$defpass))
         shiny::req(!base::is.null(input$defhistbreaks))
         chartR::draw_grade_distribution(modrval$student_grades, input$defpass, input$defhistbreaks)
       })
-      
       
     }
   )
