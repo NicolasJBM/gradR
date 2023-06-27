@@ -166,15 +166,14 @@ grading_server <- function(id, test, tree, course_data, course_paths){
           test_path, "/7_answers/closed.csv"
         )
         if (base::file.exists(closed_answers)){
-          closed_answers <- readr::read_csv(closed_answers, col_types = "ccnccn")
+          closed_answers <- readr::read_csv(closed_answers, col_types = "ccncc")
         } else {
           closed_answers <- tibble::tibble(
             student = base::character(0),
             test = base::character(0),
             attempt = base::numeric(0),
             version = base::character(0),
-            letter = base::character(0),
-            success = base::numeric(0)
+            letter = base::character(0)
           )
         }
         
@@ -182,15 +181,14 @@ grading_server <- function(id, test, tree, course_data, course_paths){
           test_path, "/7_answers/numeric.csv"
         )
         if (base::file.exists(numeric_answers)){
-          numeric_answers <- readr::read_csv(numeric_answers, col_types = "ccncnn")
+          numeric_answers <- readr::read_csv(numeric_answers, col_types = "ccncn")
         } else {
           numeric_answers <- tibble::tibble(
             student = base::character(0),
             test = base::character(0),
             attempt = base::numeric(0),
             version = base::character(0),
-            proposition = base::numeric(0),
-            success = base::numeric(0)
+            proposition = base::numeric(0)
           )
         }
         
@@ -206,7 +204,10 @@ grading_server <- function(id, test, tree, course_data, course_paths){
             )) |>
             dplyr::mutate(
               test = test_name,
-              text = purrr::map(file_path, base::readLines)
+              text = purrr::map(
+                file_path,
+                readr::read_lines, locale = readr::locale(encoding = "Latin1")
+              )
             ) |>
             tidyr::separate(file_name, into = c("record","version"), sep = "_") |>
             tidyr::separate(record, into = c("student","attempt"), sep = "-") |>
@@ -507,11 +508,12 @@ grading_server <- function(id, test, tree, course_data, course_paths){
       output$displaywordcount <- shiny::renderUI({
         shiny::req(!base::is.null(open_answer()))
         shiny::req(base::length(open_answer()) > 0)
-        wordcount <- base::sum(base::lengths(
-          base::gregexpr("\\W+", base::paste(open_answer()))
-        )+1)
-        shinydashboard::valueBox(
-          wordcount, "Words", icon = shiny::icon("keyboard"),
+        open_answer() |>
+          base::trimws() |>
+          stringr::str_count("\\W+") |>
+          base::sum() |>
+          shinydashboard::valueBox(
+          "Words", icon = shiny::icon("keyboard"),
           color = "blue", width = 12
         )
       })
@@ -521,10 +523,9 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         shiny::req(base::length(open_answer()) > 0)
         shiny::req(!base::is.null(modrval$solutions))
         shiny::req(base::nrow(modrval$solutions) > 0)
-        answer_text <- base::paste0(
-          open_answer()[open_answer() != ""],
-          collapse = "<br><br>"
-        )
+        text <- base::as.character(base::unlist(open_answer()))
+        text <- text[(stringr::str_count(base::trimws(text), "\\W+") > 0)]
+        answer_text <- base::paste0(text, collapse = "<br><br>")
         if (!base::is.null(input$slctkeywords)){
           keywords <- modrval$solutions |>
             dplyr::filter(proposition %in% input$slctkeywords) |>
@@ -554,13 +555,12 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         shiny::req(!base::is.null(modrval$solutions))
         shiny::req(base::nrow(modrval$solutions) > 0)
         shiny::req(!base::is.null(selected_version()))
-        shiny::isolate({
-          shiny::req(base::length(open_answer()) > 0)
-        })
         criteria <- modrval$solutions |>
-          dplyr::filter(version == selected_version()) |>
+          dplyr::filter(version == selected_version())
+        shiny::req(criteria$type[1] %in% c("Essay","Problem"))
+        criteria <- criteria |>
           dplyr::select(proposition) |>
-          dplyr::arrange(letter) |>
+          dplyr::arrange(proposition) |>
           base::unlist() |> base::as.character() |>
           base::unique()
         shiny::checkboxGroupInput(
@@ -655,7 +655,8 @@ grading_server <- function(id, test, tree, course_data, course_paths){
           dplyr::mutate(
             correct = base::as.numeric(earned > 0.5 * points)
           ) |>
-          dplyr::select(observation, code, earned, correct)
+          dplyr::select(observation, code, earned, correct) |>
+          tidyr::replace_na(base::list(earned = 0, correct = 0))
       })
       
       question_statistics <- shiny::reactive({
@@ -684,6 +685,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
       })
       
       item_statistics <- shiny::reactive({
+        shiny::req(!base::is.null(input$refresh_itemstats))
         input$refresh_itemstats
         shiny::isolate({
           shiny::req(!base::is.null(modrval$results))
@@ -695,7 +697,6 @@ grading_server <- function(id, test, tree, course_data, course_paths){
           nbritems <- base::nrow(prelimcheck)
           shiny::req(nbrstudents >= 10)
           shiny::req(nbritems >= 3)
-          
           shinybusy::show_modal_spinner(
             spin = "orbit",
             text = "Please wait while item statistics are computed..."
@@ -716,9 +717,9 @@ grading_server <- function(id, test, tree, course_data, course_paths){
               model = stats::as.formula("correct ~ success + proficiency"),
               minobs = 10
             )
-          shinybusy::remove_modal_spinner()
-          itemstats
         })
+        shinybusy::remove_modal_spinner()
+        itemstats
       })
       
       
@@ -981,6 +982,12 @@ grading_server <- function(id, test, tree, course_data, course_paths){
       allscores <- shiny::reactive({
         shiny::req(!base::is.null(basis_for_main_statistics()))
         
+        
+        tmp <- basis_for_main_statistics()
+        base::save(tmp, file = "check.RData")
+        
+        
+        
         shinybusy::show_modal_spinner(
           spin = "orbit",
           text = "Please wait while additional metrics are computed..."
@@ -997,35 +1004,47 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         fa_basis <- basis_for_main_statistics() |>
           dplyr::select(-correct) |>
           dplyr::arrange(observation) |>
-          tidyr::pivot_wider(names_from = "code", values_from = "earned") |>
-          tibble::column_to_rownames("observation")
+          stats::na.omit() |>
+          tidyr::pivot_wider(names_from = "code", values_from = "earned", values_fill = 0) |>
+          tibble::column_to_rownames("observation") |>
+          stats::na.omit()
         
-        irt_basis <- basis_for_main_statistics() |>
-          dplyr::select(-earned) |>
-          dplyr::arrange(observation) |>
-          tidyr::pivot_wider(names_from = "code", values_from = "correct") |>
-          tibble::column_to_rownames("observation")
-        
-        base::names(irt_basis) <- base::paste0(base::names(irt_basis), "_LGL")
+        fa_basis <- fa_basis[,(base::apply(fa_basis, 2, stats::sd) != 0)]
         
         factana <- psych::fa(fa_basis)
-        irtana <- psych::irt.fa(irt_basis, plot = FALSE)
-        
-        scores <- tibble::tibble(
+        fa_scores <- tibble::tibble(
           student = base::row.names(fa_basis),
-          fa = factana$scores[,1],
-          irt = psych::scoreIrt(irtana, irt_basis)$theta
+          fa = factana$scores[,1]
         )
+        
+        #irt_basis <- basis_for_main_statistics() |>
+        #  dplyr::select(-earned) |>
+        #  dplyr::arrange(observation) |>
+        #  stats::na.omit() |>
+        #  tidyr::pivot_wider(names_from = "code", values_from = "correct", values_fill = 0) |>
+        #  tibble::column_to_rownames("observation")
+        
+        #irt_basis <- irt_basis[,(base::apply(irt_basis, 2, stats::sd) != 0)]
+        
+        #base::names(irt_basis) <- base::paste0(base::names(irt_basis), "_LGL")
+        #irtana <- psych::irt.fa(irt_basis, plot = FALSE)
+        #irt_scores <- tibble::tibble(
+        #  student = base::row.names(irt_basis),
+        #  irt = psych::scoreIrt(irtana, irt_basis)$theta
+        #)
+        
+        allscores <- tibble::rownames_to_column(fa_basis, "student") |>
+          dplyr::left_join(grades, by = "student") |>
+          dplyr::left_join(percentage, by = "student") |>
+          dplyr::left_join(fa_scores, by = "student") |>
+          #dplyr::left_join(irt_scores, by = "student") |>
+          tibble::column_to_rownames("student") |>
+          #dplyr::select(-dplyr::ends_with("_LGL")) |>
+          dplyr::mutate_all(function(x) base::replace(x, base::is.na(x), 0))
         
         shinybusy::remove_modal_spinner()
         
-        tibble::rownames_to_column(fa_basis, "student") |>
-          dplyr::left_join(tibble::rownames_to_column(irt_basis, "student"), by = "student") |>
-          dplyr::left_join(grades, by = "student") |>
-          dplyr::left_join(percentage, by = "student") |>
-          dplyr::left_join(scores, by = "student") |>
-          tibble::column_to_rownames("student") |>
-          dplyr::select(-dplyr::ends_with("_LGL"))
+        allscores
       })
       
       output$diagnostics <- shiny::renderUI({

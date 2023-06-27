@@ -19,8 +19,8 @@ grading_ui <- function(id){
           inputId = ns("focus"),
           label = NULL, 
           choices = c(
-            `<i class='fa fa-user'> Student-centric </i>` = "student",
-            `<i class='fa fa-question-circle'> Question-centric </i>` = "question"
+            `<i class='fa fa-question-circle'> Question-centric </i>` = "question",
+            `<i class='fa fa-user'> Student-centric </i>` = "student"
           ), selected = base::character(0),
           status = "primary", justified = TRUE,
           size = "normal", direction = "vertical",
