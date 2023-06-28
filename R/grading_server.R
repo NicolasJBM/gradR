@@ -248,7 +248,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
           test_path, "/8_results/results.csv"
         )
         if (base::file.exists(results)){
-          results <- readr::read_csv(results, col_types = "cccccn")
+          results <- readr::read_csv(results, col_types = "ccnccnccccllnnnn")
         } else {
           results <- tibble::tibble(
             student = base::character(0),
@@ -261,8 +261,8 @@ grading_server <- function(id, test, tree, course_data, course_paths){
             item = base::character(0),
             language = base::character(0),
             scale = base::character(0),
-            partial_credits = base::numeric(0),
-            penalty = base::numeric(0),
+            partial_credits = base::logical(0),
+            penalty = base::logical(0),
             points = base::numeric(0),
             checked = base::numeric(0),
             weight = base::numeric(0),
