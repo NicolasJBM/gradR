@@ -336,8 +336,8 @@ grading_server <- function(id, test, tree, course_data, course_paths){
             )
           ),
           choiceValues = exam_languages$langiso,
-          status = "info", justified = TRUE,
-          size = "sm", direction = "horizontal",
+          status = "primary", justified = FALSE, size = "sm",
+          checkIcon = base::list(yes = shiny::icon("check"))
         )
       })
       
