@@ -114,6 +114,8 @@ grading_server <- function(id, test, tree, course_data, course_paths){
       keep <- NULL
       guess <- NULL
       grade <- NULL
+      flag <- NULL
+      langiso <- NULL
       
       ##########################################################################
       # Loading
@@ -318,6 +320,27 @@ grading_server <- function(id, test, tree, course_data, course_paths){
       ##########################################################################
       # Selection
       
+      output$slctlanguage <- shiny::renderUI({
+        shiny::req(!base::is.null(modrval$test_parameters))
+        shiny::req(base::nrow(modrval$test_parameters) > 1)
+        exam_languages <- course_data()$languages |>
+          dplyr::select(langiso, language, flag) |>
+          dplyr::filter(langiso %in% modrval$test_parameters$test_languages[1])
+        shinyWidgets::radioGroupButtons(
+          inputId = ns("slctexamlang"), label = NULL,
+          choiceNames = base::lapply(
+            base::seq_along(exam_languages$langiso), 
+            function(i) shiny::tagList(
+              shiny::tags$img(src = exam_languages$flag[i], width = 20, height = 15),
+              exam_languages$language[i]
+            )
+          ),
+          choiceValues = exam_languages$langiso,
+          status = "info", justified = TRUE,
+          size = "sm", direction = "horizontal",
+        )
+      })
+      
       output$filters <- shiny::renderUI({
         shiny::req(base::length(input$focus) > 0)
         if (input$focus == "student") {
@@ -366,7 +389,11 @@ grading_server <- function(id, test, tree, course_data, course_paths){
             dplyr::select(question) |> base::unique() |>
             base::unlist() |> base::as.character()
         } else {
-          questions <- base::unique(modrval$selection_basis$question)
+          shiny::req(!base::is.null(input$slctexamlang))
+          questions <- modrval$selection_basis |>
+            dplyr::filter(stringr::str_detect(question, input$slctexamlang)) |>
+            dplyr::select(question) |> base::unique() |>
+            base::unlist() |> base::as.character()
         }
         questions
       })
@@ -401,7 +428,12 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         shiny::req(base::length(input$focus) > 0)
         shiny::req(base::length(test()) > 1)
         if (input$focus == "student") {
-          students <- base::unique(modrval$selection_basis$student)
+          shiny::req(!base::is.null(input$slctexamlang))
+          students <- modrval$selection_basis |>
+            dplyr::filter(stringr::str_detect(question, input$slctexamlang)) |>
+            dplyr::select(student) |> base::unique() |>
+            base::unlist() |> base::as.character()
+          
         } else {
           shiny::req(!base::is.null(selected_version()))
           students <- modrval$selection_basis |>

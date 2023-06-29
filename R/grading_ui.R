@@ -23,9 +23,10 @@ grading_ui <- function(id){
             `<i class='fa fa-user'> Student-centric </i>` = "student"
           ), selected = base::character(0),
           status = "primary", justified = TRUE,
-          size = "normal", direction = "vertical",
+          size = "sm", direction = "vertical",
           checkIcon = base::list(yes = shiny::icon("check"))
-        )
+        ),
+        shiny::uiOutput(ns("slctlanguage"))
       ),
       shiny::column(
         10,
