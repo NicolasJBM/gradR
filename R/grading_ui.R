@@ -17,13 +17,13 @@ grading_ui <- function(id){
         2,
         shinyWidgets::radioGroupButtons(
           inputId = ns("focus"),
-          label = NULL, 
+          label = "Filter by:", 
           choices = c(
-            `<i class='fa fa-question-circle'> Question-centric </i>` = "question",
-            `<i class='fa fa-user'> Student-centric </i>` = "student"
+            `<i class='fa fa-question-circle'> Question </i>` = "question",
+            `<i class='fa fa-user'> Student </i>` = "student"
           ), selected = base::character(0),
           status = "primary", justified = TRUE,
-          size = "sm", direction = "vertical",
+          size = "sm", direction = "horizontal",
           checkIcon = base::list(yes = shiny::icon("check"))
         ),
         shiny::uiOutput(ns("slctlanguage"))
@@ -89,7 +89,7 @@ grading_ui <- function(id){
       ),
       shiny::tabPanel(
         title = shiny::tagList(
-          shiny::icon("heart-pulse"), shiny::span(
+          shiny::icon("magnifying-glass-chart"), shiny::span(
             "Diagnostics",
             title = "Check grading consistency across questions and students."
           )
