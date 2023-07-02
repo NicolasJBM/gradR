@@ -35,8 +35,6 @@
 
 
 
-
-
 compile_grading <- function(
     test_parameters, solutions, students,
     closed_answers, numeric_answers, open_answers,
@@ -92,32 +90,37 @@ compile_grading <- function(
   
   # Add numeric answers missing in the solutions
   missing_numeric_propositions <- numeric_answers |>
-    dplyr::select(test, version, proposition) |>
+    dplyr::select(version, proposition) |>
     base::unique() |>
     dplyr::mutate(proposition = base::as.character(proposition)) |>
     dplyr::anti_join(
-      dplyr::select(solutions, test, version, proposition),
-      by = c("test", "version", "proposition")
+      dplyr::select(solutions, version, proposition),
+      by = c("version", "proposition")
     )
   if (base::nrow(missing_numeric_propositions) > 0){
     missing_numeric_propositions <- missing_numeric_propositions |>
       dplyr::left_join(base::unique(
         dplyr::select(
-          solutions, path, test, version, type,
+          solutions, path, version, type,
           document, language, interrogation, scale
         )
       ),
-      by = c("test", "version")
+      by = "version"
       ) |>
       dplyr::mutate(
-        number = base::as.numeric(NA), letter = base::as.character(NA),
-        item = base::as.character(NA), modifications = 0, value = 0,
-        explanation = base::as.character(NA), keywords = base::as.character(NA),
-        correct = 0, weight = 0
+        number = base::as.numeric(NA),
+        letter = base::as.character(NA),
+        item = base::as.character(NA),
+        modifications = 0,
+        value = 0,
+        explanation = base::as.character(NA),
+        keywords = base::as.character(NA),
+        correct = 0,
+        weight = 0
       ) |>
       dplyr::select(base::names(solutions))
     solutions <- dplyr::bind_rows(solutions, missing_numeric_propositions) |>
-      dplyr::arrange(test, version, number)
+      dplyr::arrange(version, number)
   }
   base::rm(missing_numeric_propositions)
   
@@ -128,7 +131,7 @@ compile_grading <- function(
     letters, base::sapply(letters, function(x) base::paste0(x, letters))
   )
   solutions <- solutions |>
-    dplyr::group_by(test, version) |>
+    dplyr::group_by(version) |>
     tidyr::nest() |>
     dplyr::mutate(
       data = purrr::map(data, function(x,y){
@@ -175,7 +178,13 @@ compile_grading <- function(
     ) |>
     dplyr::ungroup() |>
     dplyr::mutate(
-      standard_weight = points*duplication*(correct/nbrcorrect-penalty*(1-correct)/max(1,nbrincorrect))
+      standard_weight = points*duplication*(correct/nbrcorrect-penalty*(1-correct)/max(1,nbrincorrect)) #Change this so that when there is duplication, weight are correct weighted by points
+    ) |>
+    dplyr::mutate(
+      standard_weight = dplyr::case_when(
+        standard_weight > 0 & correct == 0 ~ 0,
+        TRUE ~ standard_weight
+      )
     ) |>
     dplyr::select(version, item, letter, standard_weight)
   
@@ -210,7 +219,6 @@ compile_grading <- function(
   # update compiled answers to integrate new students, attempts, or propositions
   raw_empty <- tibble::tibble(
     student = base::character(0),
-    test = base::character(0),
     attempt = base::numeric(0),
     version = base::character(0),
     letter = base::character(0),
@@ -218,11 +226,10 @@ compile_grading <- function(
     raw_checked = base::numeric(0)
   )
   
-  
   if (base::nrow(closed_answers)>0){
     raw_closed <- closed_answers |>
-      dplyr::select(student, test, attempt, version, letter) |>
-      dplyr::group_by(student, test, attempt, version) |>
+      dplyr::select(student, attempt, version, letter) |>
+      dplyr::group_by(student, attempt, version) |>
       tidyr::nest() |>
       dplyr::mutate(data = purrr::map(data, function(x){
         base::unique(base::as.character(x$letter))
@@ -236,7 +243,7 @@ compile_grading <- function(
           base::as.numeric(x %in% y)
         }),
         questype = "closed") |>
-      dplyr::select(student, test, attempt, version, letter, questype, raw_checked) |>
+      dplyr::select(student, attempt, version, letter, questype, raw_checked) |>
       dplyr::ungroup() |>
       base::unique()
   } else {
@@ -245,8 +252,8 @@ compile_grading <- function(
   
   if (base::nrow(numeric_answers)>0){
     raw_numeric <- numeric_answers |>
-      dplyr::select(student, test, attempt, version, proposition) |>
-      dplyr::group_by(student, test, attempt, version) |>
+      dplyr::select(student, attempt, version, proposition) |>
+      dplyr::group_by(student, attempt, version) |>
       tidyr::nest() |>
       dplyr::mutate(data = purrr::map(data, function(x){
         base::unique(base::as.character(x$proposition))
@@ -260,7 +267,7 @@ compile_grading <- function(
           base::as.numeric(x %in% y)
         }),
         questype = "numeric") |>
-      dplyr::select(student, test, attempt, version, letter, questype, raw_checked) |>
+      dplyr::select(student, attempt, version, letter, questype, raw_checked) |>
       dplyr::ungroup() |>
       base::unique()
   } else {
@@ -269,29 +276,26 @@ compile_grading <- function(
   
   if (base::nrow(open_answers)>0){
     raw_open <- open_answers |>
-      dplyr::select(student, test, attempt, version) |>
+      dplyr::select(student, attempt, version) |>
       dplyr::left_join(
         base::unique(dplyr::select(solutions, version, letter)),
         by = "version"
       ) |>
       dplyr::mutate(raw_checked = 0, questype = "open") |>
-      dplyr::select(student, test, attempt, version, letter, questype, raw_checked)
+      dplyr::select(student, attempt, version, letter, questype, raw_checked)
   } else {
     raw_open <- raw_empty
   }
   
-  
-  
   answers <- dplyr::bind_rows(raw_closed, raw_numeric, raw_open) |>
     base::unique()|>
-    tidyr::unite(student, student, attempt, sep = "-") |>
     dplyr::left_join(
       base::unique(dplyr::select(test_parameters, question, version)),
       by = "version"
     ) |>
     dplyr::left_join(
-      dplyr::select(answers, student, version, letter, checked),
-      by = c("student", "version", "letter") 
+      dplyr::select(answers, student, attempt, version, letter, checked),
+      by = c("student", "attempt", "version", "letter") 
     ) |>
     dplyr::right_join(
       base::unique(dplyr::select(solutions, version, letter)),
@@ -305,34 +309,53 @@ compile_grading <- function(
         TRUE ~ checked
       )
     ) |>
-    dplyr::select(student, test, question, version, letter, checked) |>
-    dplyr::arrange(student, test, version, letter)
+    dplyr::select(student, attempt, question, version, letter, checked) |>
+    dplyr::arrange(student, attempt, version, letter)
   
   
   
   # update results to account for new compiled answers and new scoring
   aggregated_weights <- solutions |>
-    dplyr::group_by(version, number, letter, item, language, scale) |>
+    dplyr::group_by(version, number, letter, item, language, correct, scale) |>
     dplyr::summarise(weight = base::sum(weight), .groups = "drop")
   question_parameters <- test_parameters |>
     dplyr::select(question, partial_credits, penalty, points) |>
     base::unique()
   results <- answers |>
-    tidyr::separate(student, into = c("student","attempt"), sep = "-") |>
     dplyr::left_join(aggregated_weights, by = c("version","letter")) |>
     dplyr::left_join(question_parameters, by = c("question")) |>
     dplyr::mutate(earned = checked * weight) |>
     dplyr::select(
-      student, test, attempt, question, version, number, letter, item,
-      language, scale, partial_credits, penalty, points, checked, weight, earned
+      student, attempt, question, version, number, letter, item,
+      language, scale, partial_credits, penalty, points, checked, correct,
+      weight, earned
+    ) |>
+    dplyr::group_by(
+      student, attempt, question, version, number, letter,
+      language, scale, partial_credits, penalty, points, checked
+    ) |>
+    tidyr::nest() |>
+    dplyr::mutate(total_earned = purrr::map_dbl(data, function(x) base::sum(x$earned))) |>
+    tidyr::unnest(data) |>
+    dplyr::ungroup() |>
+    dplyr::mutate(
+      earned = dplyr::case_when(
+        partial_credits == 0 & total_earned < points ~ 0,
+        penalty == 0 & total_earned < 0 ~ 0,
+        TRUE ~ earned
+      )
+    ) |>
+    dplyr::select(
+      student, attempt, question, version, number, letter, item,
+      language, scale, partial_credits, penalty, points, checked, correct,
+      weight, earned
     )
   
   
   
   # Compute grades
   question_grades <- results |>
-    tidyr::unite("student", student, attempt, sep = "-") |>
-    dplyr::group_by(student, test, question, partial_credits, penalty) |>
+    dplyr::group_by(student, attempt, question, partial_credits, penalty) |>
     dplyr::summarise(
       points = base::max(points, na.rm = TRUE),
       earned = base::sum(earned, na.rm = TRUE),
@@ -351,7 +374,7 @@ compile_grading <- function(
     dplyr::mutate(earned = base::round(earned, 2))
   
   student_grades <- question_grades |>
-    dplyr::group_by(student) |>
+    dplyr::group_by(student, attempt) |>
     dplyr::summarise(
       points = base::sum(points, na.rm = TRUE),
       grade = base::sum(earned, na.rm = TRUE),

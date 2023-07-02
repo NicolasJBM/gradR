@@ -12,24 +12,27 @@ grading_ui <- function(id){
   ns <- shiny::NS(id)
   base::list(
     shiny::fluidRow(
-      
       shiny::column(
-        2,
+        4,
         shinyWidgets::radioGroupButtons(
-          inputId = ns("focus"),
-          label = "Filter by:", 
+          inputId = ns("focus"), label = NULL, 
           choices = c(
-            `<i class='fa fa-question-circle'> Question </i>` = "question",
-            `<i class='fa fa-user'> Student </i>` = "student"
+            `<i class='fa fa-question-circle'> Focus on questions </i>` = "question",
+            `<i class='fa fa-user'> Focus on students </i>` = "student"
           ), selected = base::character(0),
           status = "primary", justified = TRUE,
           size = "sm", direction = "horizontal",
           checkIcon = base::list(yes = shiny::icon("check"))
-        ),
-        shiny::uiOutput(ns("slctlanguage"))
+        )
       ),
       shiny::column(
-        10,
+        8,
+        shiny::uiOutput(ns("slctlanguage"))
+      )
+    ),
+    shiny::fluidRow(
+      shiny::column(
+        12,
         shiny::uiOutput(ns("filters"))
       )
     ),

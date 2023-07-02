@@ -116,6 +116,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
       grade <- NULL
       flag <- NULL
       langiso <- NULL
+      observation <- NULL
       
       ##########################################################################
       # Loading
@@ -157,9 +158,12 @@ grading_server <- function(id, test, tree, course_data, course_paths){
             dplyr::mutate(enrolled = 1)
         } else {
           students <- tibble::tibble(
-            student = base::character(0), team = base::character(0),
-            firstname = base::character(0), lastname = base::character(0),
-            email = base::character(0), enrolled = base::numeric(0)
+            student = base::character(0),
+            team = base::character(0),
+            firstname = base::character(0),
+            lastname = base::character(0),
+            email = base::character(0),
+            enrolled = base::numeric(0)
           )
         }
         
@@ -168,11 +172,10 @@ grading_server <- function(id, test, tree, course_data, course_paths){
           test_path, "/7_answers/closed.csv"
         )
         if (base::file.exists(closed_answers)){
-          closed_answers <- readr::read_csv(closed_answers, col_types = "ccncc")
+          closed_answers <- readr::read_csv(closed_answers, col_types = "cncc")
         } else {
           closed_answers <- tibble::tibble(
             student = base::character(0),
-            test = base::character(0),
             attempt = base::numeric(0),
             version = base::character(0),
             letter = base::character(0)
@@ -183,14 +186,13 @@ grading_server <- function(id, test, tree, course_data, course_paths){
           test_path, "/7_answers/numeric.csv"
         )
         if (base::file.exists(numeric_answers)){
-          numeric_answers <- readr::read_csv(numeric_answers, col_types = "ccncn")
+          numeric_answers <- readr::read_csv(numeric_answers, col_types = "cncc")
         } else {
           numeric_answers <- tibble::tibble(
             student = base::character(0),
-            test = base::character(0),
             attempt = base::numeric(0),
             version = base::character(0),
-            proposition = base::numeric(0)
+            proposition = base::character(0)
           )
         }
         
@@ -205,7 +207,6 @@ grading_server <- function(id, test, tree, course_data, course_paths){
               test_path, "/7_answers/open/", file_name
             )) |>
             dplyr::mutate(
-              test = test_name,
               text = purrr::map(
                 file_path,
                 readr::read_lines, locale = readr::locale(encoding = "Latin1")
@@ -217,11 +218,10 @@ grading_server <- function(id, test, tree, course_data, course_paths){
               attempt = base::as.numeric(attempt),
               version = stringr::str_remove_all(version, ".txt")
             ) |>
-            dplyr::select(student, test, attempt, version, text)
+            dplyr::select(student, attempt, version, text)
         } else {
           open_answers <- tibble::tibble(
             student = base::character(0),
-            test = base::character(0),
             attempt = base::numeric(0),
             version = base::character(0),
             text = base::numeric(0)
@@ -233,42 +233,15 @@ grading_server <- function(id, test, tree, course_data, course_paths){
           test_path, "/8_results/answers.csv"
         )
         if (base::file.exists(answers)){
-          answers <- readr::read_csv(answers, col_types = "cccccn")
+          answers <- readr::read_csv(answers, col_types = "cncccn")
         } else {
           answers <- tibble::tibble(
             student = base::character(0),
-            test = base::character(0),
+            attempt = base::numeric(0),
             question = base::character(0),
             version = base::character(0),
             letter = base::character(0),
             checked = base::numeric(0)
-          )
-        }
-        
-        # Results
-        results <- base::paste0(
-          test_path, "/8_results/results.csv"
-        )
-        if (base::file.exists(results)){
-          results <- readr::read_csv(results, col_types = "ccnccnccccllnnnn")
-        } else {
-          results <- tibble::tibble(
-            student = base::character(0),
-            test = base::character(0),
-            attempt = base::numeric(0),
-            question = base::character(0),
-            version = base::character(0),
-            number = base::numeric(0),
-            letter = base::character(0),
-            item = base::character(0),
-            language = base::character(0),
-            scale = base::character(0),
-            partial_credits = base::logical(0),
-            penalty = base::logical(0),
-            points = base::numeric(0),
-            checked = base::numeric(0),
-            weight = base::numeric(0),
-            earned = base::numeric(0)
           )
         }
         
@@ -303,7 +276,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         modrval$student_grades <- compiled$student_grades
         
         modrval$selection_basis <- compiled$answers |>
-          dplyr::select(student, question, version) |>
+          dplyr::select(student, attempt, question, version) |>
           base::unique()
         
         gradR::write_compiled(compiled, test_path)
@@ -337,6 +310,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
           ),
           choiceValues = exam_languages$langiso,
           status = "primary", justified = FALSE, size = "sm",
+          direction = "horizontal",
           checkIcon = base::list(yes = shiny::icon("check"))
         )
       })
@@ -346,31 +320,39 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         if (input$focus == "student") {
           shiny::fluidRow(
             shiny::column(
-              4,
-              editR::selection_ui(ns("select_student"), "Student-attempt:")
+              3,
+              editR::selection_ui(ns("select_student"), "Student:")
             ),
             shiny::column(
-              4,
+              3,
+              editR::selection_ui(ns("select_attempt"), "Attempt:")
+            ),
+            shiny::column(
+              3,
               editR::selection_ui(ns("select_version"), "Version:")
             ),
             shiny::column(
-              4,
+              3,
               editR::selection_ui(ns("select_question"), "Question:")
             )
           )
         } else {
           shiny::fluidRow(
             shiny::column(
-              4,
+              3,
               editR::selection_ui(ns("select_question"), "Question:")
             ),
             shiny::column(
-              4,
+              3,
               editR::selection_ui(ns("select_version"), "Version:")
             ),
             shiny::column(
-              4,
-              editR::selection_ui(ns("select_student"), "Student-attempt:")
+              3,
+              editR::selection_ui(ns("select_student"), "Student:")
+            ),
+            shiny::column(
+              3,
+              editR::selection_ui(ns("select_attempt"), "Attempt:")
             )
           )
         }
@@ -397,16 +379,16 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         }
         questions
       })
-      
       selected_question <- editR::selection_server("select_question", questions)
       
       versions <- shiny::reactive({
         shiny::req(base::length(input$focus) > 0)
         if (input$focus == "student") {
           shiny::req(!base::is.null(selected_student()))
+          shiny::req(!base::is.null(selected_attempt()))
           shiny::req(base::nrow(modrval$selection_basis) > 0)
           versions <- modrval$selection_basis |>
-            dplyr::filter(student == selected_student()) |>
+            dplyr::filter(student == selected_student(), attempt == base::as.numeric(selected_attempt())) |>
             dplyr::select(version) |> base::unique() |>
             base::unlist() |> base::as.character()
         } else {
@@ -419,7 +401,6 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         }
         versions
       })
-      
       selected_version <- editR::selection_server("select_version", versions)
       
       students <- shiny::reactive({
@@ -443,8 +424,21 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         }
         students
       })
-      
       selected_student <- editR::selection_server("select_student", students)
+      
+      attempts <- shiny::reactive({
+        shiny::req(!base::is.null(modrval$selection_basis))
+        shiny::req(base::nrow(modrval$selection_basis) > 0)
+        shiny::req(base::length(input$focus) > 0)
+        shiny::req(base::length(test()) > 1)
+        shiny::req(!base::is.null(selected_student()))
+        attempts <- modrval$selection_basis |>
+          dplyr::filter(student == selected_student()) |>
+          dplyr::select(attempt) |> base::unique() |>
+          base::unlist() |> base::as.character()
+        attempts
+      })
+      selected_attempt <- editR::selection_server("select_attempt", attempts)
       
       
       
@@ -454,11 +448,13 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         shiny::req(!base::is.null(selected_question()))
         shiny::req(!base::is.null(selected_version()))
         shiny::req(!base::is.null(selected_student()))
+        shiny::req(!base::is.null(selected_attempt()))
         selected <- modrval$answers |>
           dplyr::filter(
             question == selected_question(),
             version == selected_version(),
-            student == selected_student()
+            student == selected_student(),
+            attempt == base::as.numeric(selected_attempt())
           )
         filepath <- base::paste0(modrval$test_path, "/5_examination/mdfiles/", selected_version())
         filepath <- stringr::str_replace(filepath, "Rmd$", "md")
@@ -473,11 +469,13 @@ grading_server <- function(id, test, tree, course_data, course_paths){
       output$check_answers <- shiny::renderUI({
         shiny::req(!base::is.null(selected_version()))
         shiny::req(!base::is.null(selected_student()))
+        shiny::req(!base::is.null(selected_attempt()))
         shiny::req(!base::is.null(modrval$answers))
         options <- modrval$answers |>
           dplyr::filter(
             version == selected_version(),
-            student == selected_student()
+            student == selected_student(),
+            attempt == base::as.numeric(selected_attempt())
           ) |>
           dplyr::left_join(base::unique(dplyr::select(
             modrval$solutions, version, number, letter, scale,
@@ -503,10 +501,12 @@ grading_server <- function(id, test, tree, course_data, course_paths){
       output$displayearned <- shiny::renderUI({
         shiny::req(!base::is.null(selected_question()))
         shiny::req(!base::is.null(selected_student()))
+        shiny::req(!base::is.null(selected_attempt()))
         shiny::req(!base::is.null(modrval$question_grades))
         student_question_grade <- modrval$question_grades |>
           dplyr::filter(
             student == selected_student(),
+            attempt == base::as.numeric(selected_attempt()),
             question == selected_question()
           ) |>
           dplyr::select(points, earned)
@@ -531,11 +531,12 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         shiny::req(!base::is.null(modrval$open_answers))
         shiny::req(!base::is.null(selected_version()))
         shiny::req(!base::is.null(selected_student()))
+        shiny::req(!base::is.null(selected_attempt()))
         modrval$open_answers |>
-          tidyr::unite(student, student, attempt, sep = "-") |>
           dplyr::filter(
             version == selected_version(),
-            student == selected_student()
+            student == selected_student(),
+            attempt == base::as.numeric(selected_attempt())
           ) |>
           dplyr::select(text) |>
           base::unlist() |> base::as.character()
@@ -629,6 +630,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
             }
             update_answer <- tibble::tibble(
                 student = selected_student(),
+                attempt = selected_attempt(),
                 test = modrval$test_name,
                 question = selected_question(), 
                 version = selected_version(),
@@ -743,8 +745,8 @@ grading_server <- function(id, test, tree, course_data, course_paths){
             dplyr::select(observation, code, checked, weight, earned) |>
             dplyr::mutate(
               correct = dplyr::case_when(
-                checked == 0 & weight <= 0 ~ 1,
-                checked == 1 & weight > 0 ~ 1,
+                checked == 0 & earned <= 0 ~ 1,
+                checked == 1 & earned > 0 ~ 1,
                 TRUE ~ 0
               )
             ) |>
@@ -836,9 +838,11 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         shiny::isolate({
           shiny::req(!base::is.null(modrval$answers))
           shiny::req(!base::is.null(selected_student()))
+          shiny::req(!base::is.null(selected_attempt()))
           selected_version <- modrval$answers |>
             dplyr::filter(
               student == selected_student(),
+              attempt == base::as.numeric(selected_attempt()),
               version == selected_version()
             )
           selected_version <- selected_version$version[1]
@@ -1022,14 +1026,15 @@ grading_server <- function(id, test, tree, course_data, course_paths){
           spin = "orbit",
           text = "Please wait while additional metrics are computed..."
         )
-        grades <- dplyr::select(modrval$student_grades, student, grade) |>
-          dplyr::arrange(student)
+        grades <- dplyr::select(modrval$student_grades, student, attempt, grade) |>
+          tidyr::unite("observation", student, attempt, sep = "-") |>
+          dplyr::arrange(observation)
         
         percentage <- basis_for_main_statistics() |>
-          dplyr::select(student = observation, correct) |>
-          dplyr::group_by(student) |>
+          dplyr::select(observation, correct) |>
+          dplyr::group_by(observation) |>
           dplyr::summarise(percentage = base::mean(correct, na.rm = TRUE), .groups = "drop") |>
-          dplyr::arrange(student)
+          dplyr::arrange(observation)
         
         fa_basis <- basis_for_main_statistics() |>
           dplyr::select(-correct) |>
@@ -1043,15 +1048,15 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         
         factana <- psych::fa(fa_basis)
         fa_scores <- tibble::tibble(
-          student = base::row.names(fa_basis),
+          observation = base::row.names(fa_basis),
           factor = factana$scores[,1]
         )
         
-        allscores <- tibble::rownames_to_column(fa_basis, "student") |>
-          dplyr::left_join(grades, by = "student") |>
-          dplyr::left_join(percentage, by = "student") |>
-          dplyr::left_join(fa_scores, by = "student") |>
-          tibble::column_to_rownames("student") |>
+        allscores <- tibble::rownames_to_column(fa_basis, "observation") |>
+          dplyr::left_join(grades, by = "observation") |>
+          dplyr::left_join(percentage, by = "observation") |>
+          dplyr::left_join(fa_scores, by = "observation") |>
+          tibble::column_to_rownames("observation") |>
           dplyr::mutate_all(function(x) base::replace(x, base::is.na(x), 0))
         
         shinybusy::remove_modal_spinner()
@@ -1200,24 +1205,26 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         scores <- allscores()[,c(input$slctx, input$slcty)]
         base::names(scores) <- c("x","y")
         brushed <- scores |>
-          tibble::rownames_to_column("student") |>
-          shiny::brushedPoints(input$density_brush)
-        base::unique(brushed$student)
+          shiny::brushedPoints(input$density_brush) |>
+          tibble::rownames_to_column("observation")
+        base::unique(brushed$observation)
       })
       
       output$score_differences <- shiny::renderPlot({
         shiny::req(!base::is.null(allscores()))
         shiny::req(!base::is.null(brushed_students()))
-        chartR::draw_score_differences(allscores(), brushed_students())
+        allscores() |>
+          dplyr::select(observation, dplyr::starts_with("Q")) |>
+          chartR::draw_score_differences(brushed_students())
       })
       
       output$selection <- shiny::renderDataTable({
         shiny::req(!base::is.null(allscores()))
         shiny::req(!base::is.null(brushed_students()))
         allscores() |>
-          tibble::rownames_to_column("student") |>
-          dplyr::filter(student %in% brushed_students()) |>
-          dplyr::select(student, grade)
+          tibble::rownames_to_column("observation") |>
+          dplyr::filter(observation %in% brushed_students()) |>
+          dplyr::select(observation, grade)
       })
       
       
