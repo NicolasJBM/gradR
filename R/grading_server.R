@@ -276,6 +276,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         modrval$student_grades <- compiled$student_grades
         
         modrval$selection_basis <- compiled$answers |>
+          dplyr::filter(checked == 1) |>
           dplyr::select(student, attempt, question, version) |>
           base::unique()
         
@@ -367,7 +368,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         if (input$focus == "student") {
           shiny::req(!base::is.null(selected_version()))
           questions <- modrval$selection_basis |>
-            dplyr::filter(version %in% selected_version()) |>
+            dplyr::filter(version == selected_version()) |>
             dplyr::select(question) |> base::unique() |>
             base::unlist() |> base::as.character()
         } else {
@@ -388,7 +389,8 @@ grading_server <- function(id, test, tree, course_data, course_paths){
           shiny::req(!base::is.null(selected_attempt()))
           shiny::req(base::nrow(modrval$selection_basis) > 0)
           versions <- modrval$selection_basis |>
-            dplyr::filter(student == selected_student(), attempt == base::as.numeric(selected_attempt())) |>
+            dplyr::filter(student == selected_student()) |>
+            dplyr::filter(attempt == base::as.numeric(selected_attempt())) |>
             dplyr::select(version) |> base::unique() |>
             base::unlist() |> base::as.character()
         } else {
@@ -418,7 +420,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         } else {
           shiny::req(!base::is.null(selected_version()))
           students <- modrval$selection_basis |>
-            dplyr::filter(version %in% selected_version()) |>
+            dplyr::filter(version == selected_version()) |>
             dplyr::select(student) |> base::unique() |>
             base::unlist() |> base::as.character()
         }
@@ -432,10 +434,18 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         shiny::req(base::length(input$focus) > 0)
         shiny::req(base::length(test()) > 1)
         shiny::req(!base::is.null(selected_student()))
-        attempts <- modrval$selection_basis |>
-          dplyr::filter(student == selected_student()) |>
-          dplyr::select(attempt) |> base::unique() |>
-          base::unlist() |> base::as.character()
+        if (input$focus == "student") {
+          attempts <- modrval$selection_basis |>
+            dplyr::filter(student == selected_student()) |>
+            dplyr::select(attempt) |> base::unique() |>
+            base::unlist() |> base::as.character()
+        } else {
+          attempts <- modrval$selection_basis |>
+            dplyr::filter(version == selected_version()) |>
+            dplyr::filter(student == selected_student()) |>
+            dplyr::select(attempt) |> base::unique() |>
+            base::unlist() |> base::as.character()
+        }
         attempts
       })
       selected_attempt <- editR::selection_server("select_attempt", attempts)
@@ -631,7 +641,6 @@ grading_server <- function(id, test, tree, course_data, course_paths){
             update_answer <- tibble::tibble(
                 student = selected_student(),
                 attempt = selected_attempt(),
-                test = modrval$test_name,
                 question = selected_question(), 
                 version = selected_version(),
                 letter = base::as.character(letters),
@@ -651,7 +660,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
               dplyr::select(-checked_chr) |>
               dplyr::arrange(letter)
             answers <- modrval$answers |>
-              dplyr::anti_join(update_answer, by = c("student","test","question","version")) |>
+              dplyr::anti_join(update_answer, by = c("student","attempt","question","version")) |>
               dplyr::bind_rows(update_answer) |>
               dplyr::arrange(student, version, letter)
             compiled <- gradR::compile_grading(
