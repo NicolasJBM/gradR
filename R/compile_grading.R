@@ -41,7 +41,6 @@ compile_grading <- function(
     answers, parameter_change = NA
 ){
   
-  test <- NULL
   proposition <- NULL
   path <- NULL
   type <- NULL
@@ -70,6 +69,7 @@ compile_grading <- function(
   nbrcorrect <- NULL
   nbrincorrect <- NULL
   standard_weight <- NULL
+  test <- NULL
   
   # Add students missing in the student list
   not_enrolled <- base::setdiff(
@@ -101,7 +101,7 @@ compile_grading <- function(
     missing_numeric_propositions <- missing_numeric_propositions |>
       dplyr::left_join(base::unique(
         dplyr::select(
-          solutions, path, version, type,
+          solutions, path, test, version, type,
           document, language, interrogation, scale
         )
       ),
@@ -318,9 +318,11 @@ compile_grading <- function(
   aggregated_weights <- solutions |>
     dplyr::group_by(version, number, letter, item, language, correct, scale) |>
     dplyr::summarise(weight = base::sum(weight), .groups = "drop")
+  
   question_parameters <- test_parameters |>
     dplyr::select(question, partial_credits, penalty, points) |>
     base::unique()
+  
   results <- answers |>
     dplyr::left_join(aggregated_weights, by = c("version","letter")) |>
     dplyr::left_join(question_parameters, by = c("question")) |>
@@ -331,8 +333,7 @@ compile_grading <- function(
       weight, earned
     ) |>
     dplyr::group_by(
-      student, attempt, question, version, number, letter,
-      language, scale, partial_credits, penalty, points, checked
+      student, attempt, question, version, partial_credits, penalty, points, checked
     ) |>
     tidyr::nest() |>
     dplyr::mutate(total_earned = purrr::map_dbl(data, function(x) base::sum(x$earned))) |>
@@ -350,8 +351,6 @@ compile_grading <- function(
       language, scale, partial_credits, penalty, points, checked, correct,
       weight, earned
     )
-  
-  
   
   # Compute grades
   question_grades <- results |>
