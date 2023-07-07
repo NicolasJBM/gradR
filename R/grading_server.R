@@ -1233,7 +1233,8 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         allscores() |>
           tibble::rownames_to_column("observation") |>
           dplyr::filter(observation %in% brushed_students()) |>
-          dplyr::select(observation, grade)
+          dplyr::select(observation, grade) |>
+          tidyr::separate(observation, into = c("student","attempt"), sep = "-")
       })
       
       
