@@ -11,6 +11,7 @@ compile_grading(
   closed_answers,
   numeric_answers,
   open_answers,
+  open_answers_txt,
   answers,
   parameter_change = NA
 )
@@ -27,6 +28,8 @@ compile_grading(
 \item{numeric_answers}{Tibble.}
 
 \item{open_answers}{Tibble.}
+
+\item{open_answers_txt}{Tibble.}
 
 \item{answers}{Tibble.}
 

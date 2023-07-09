@@ -8,6 +8,7 @@
 #' @param closed_answers Tibble.
 #' @param numeric_answers Tibble.
 #' @param open_answers Tibble.
+#' @param open_answers_txt Tibble.
 #' @param answers Tibble.
 #' @param parameter_change Character. If there is a change in a question parameters, give the question id.
 #' @return List with all compiled and updated test data.
@@ -37,7 +38,7 @@
 
 compile_grading <- function(
     test_parameters, solutions, students,
-    closed_answers, numeric_answers, open_answers,
+    closed_answers, numeric_answers, open_answers, open_answers_txt,
     answers, parameter_change = NA
 ){
   
@@ -274,8 +275,8 @@ compile_grading <- function(
     raw_numeric <- raw_empty
   }
   
-  if (base::nrow(open_answers)>0){
-    raw_open <- open_answers |>
+  if (base::nrow(open_answers_txt)>0){
+    raw_open <- open_answers_txt |>
       dplyr::select(student, attempt, version) |>
       dplyr::left_join(
         base::unique(dplyr::select(solutions, version, letter)),
@@ -283,6 +284,15 @@ compile_grading <- function(
       ) |>
       dplyr::mutate(raw_checked = 0, questype = "open") |>
       dplyr::select(student, attempt, version, letter, questype, raw_checked)
+    if (base::nrow(open_answers) > 0) {
+      raw_open <- raw_open |>
+        dplyr::left_join(open_answers, by = c("student", "attempt", "version", "letter")) |>
+        dplyr::mutate(raw_checked = dplyr::case_when(
+          !base::is.na(checked) ~ checked,
+          TRUE ~ raw_checked
+        )) |>
+        dplyr::select(-checked)
+    }
   } else {
     raw_open <- raw_empty
   }
@@ -305,14 +315,20 @@ compile_grading <- function(
       checked = dplyr::case_when(
         questype == "closed" ~ raw_checked,
         questype == "numeric" ~ raw_checked,
+        questype == "open" ~ raw_checked,
         base::is.na(checked) ~ 0,
         TRUE ~ checked
       )
-    ) |>
-    dplyr::select(student, attempt, question, version, letter, checked) |>
+    )
+  
+  open_answers <- answers |>
+    dplyr::filter(questype == "open") |>
+    dplyr::select(student, attempt, version, letter, checked) |>
     dplyr::arrange(student, attempt, version, letter)
   
-  
+  answers <- answers |>
+    dplyr::select(student, attempt, question, version, letter, checked) |>
+    dplyr::arrange(student, attempt, version, letter)
   
   # update results to account for new compiled answers and new scoring
   aggregated_weights <- solutions |>
@@ -388,6 +404,7 @@ compile_grading <- function(
     closed_answers = closed_answers,
     numeric_answers = numeric_answers,
     open_answers = open_answers,
+    open_answers_txt = open_answers_txt,
     answers = answers,
     results = results,
     question_grades = question_grades,

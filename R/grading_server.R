@@ -196,12 +196,27 @@ grading_server <- function(id, test, tree, course_data, course_paths){
           )
         }
         
-        open_answers <- base::list.files(base::paste0(
+        open_answers <- base::paste0(
+          test_path, "/7_answers/open.csv"
+        )
+        if (base::file.exists(open_answers)){
+          open_answers <- readr::read_csv(open_answers, col_types = "cnccn")
+        } else {
+          open_answers <- tibble::tibble(
+            student = base::character(0),
+            attempt = base::numeric(0),
+            version = base::character(0),
+            letter = base::character(0),
+            checked = base::numeric(0)
+          )
+        }
+        
+        open_answers_txt <- base::list.files(base::paste0(
           test_path, "/7_answers/open"
         ), full.names = FALSE)
-        if (base::length(open_answers) > 0){
-          open_answers <- tibble::tibble(
-            file_name = open_answers
+        if (base::length(open_answers_txt) > 0){
+          open_answers_txt <- tibble::tibble(
+            file_name = open_answers_txt
           ) |>
             dplyr::mutate(file_path = base::paste0(
               test_path, "/7_answers/open/", file_name
@@ -220,7 +235,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
             ) |>
             dplyr::select(student, attempt, version, text)
         } else {
-          open_answers <- tibble::tibble(
+          open_answers_txt <- tibble::tibble(
             student = base::character(0),
             attempt = base::numeric(0),
             version = base::character(0),
@@ -248,7 +263,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         shiny::req(
           (base::nrow(stats::na.omit(closed_answers)) +
             base::nrow(stats::na.omit(numeric_answers)) +
-            base::nrow(stats::na.omit(open_answers))) > 0
+            base::nrow(stats::na.omit(open_answers_txt))) > 0
         )
         
         compiled <- gradR::compile_grading(
@@ -258,6 +273,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
           closed_answers,
           numeric_answers,
           open_answers,
+          open_answers_txt,
           answers
         )
         
@@ -269,6 +285,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         modrval$closed_answers <- compiled$closed_answers
         modrval$numeric_answers <- compiled$numeric_answers
         modrval$open_answers <- compiled$open_answers
+        modrval$open_answers_txt <- compiled$open_answers_txt
         modrval$answers <- compiled$answers
         modrval$scoring <- compiled$scoring
         modrval$results <- compiled$results
@@ -276,7 +293,8 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         modrval$student_grades <- compiled$student_grades
         
         modrval$selection_basis <- compiled$answers |>
-          dplyr::filter(checked == 1) |>
+          dplyr::left_join(dplyr::select(compiled$solutions, version, type), by = "version") |>
+          dplyr::filter(type %in% c("Essay","Problem") | checked == 1) |>
           dplyr::select(student, attempt, question, version) |>
           base::unique()
         
@@ -537,12 +555,12 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         )
       })
       
-      open_answer <- shiny::reactive({
-        shiny::req(!base::is.null(modrval$open_answers))
+      open_answer_txt <- shiny::reactive({
+        shiny::req(!base::is.null(modrval$open_answers_txt))
         shiny::req(!base::is.null(selected_version()))
         shiny::req(!base::is.null(selected_student()))
         shiny::req(!base::is.null(selected_attempt()))
-        modrval$open_answers |>
+        modrval$open_answers_txt |>
           dplyr::filter(
             version == selected_version(),
             student == selected_student(),
@@ -553,9 +571,9 @@ grading_server <- function(id, test, tree, course_data, course_paths){
       })
       
       output$displaywordcount <- shiny::renderUI({
-        shiny::req(!base::is.null(open_answer()))
-        shiny::req(base::length(open_answer()) > 0)
-        open_answer() |>
+        shiny::req(!base::is.null(open_answer_txt()))
+        shiny::req(base::length(open_answer_txt()) > 0)
+        open_answer_txt() |>
           base::trimws() |>
           stringr::str_count("\\W+") |>
           base::sum() |>
@@ -566,11 +584,11 @@ grading_server <- function(id, test, tree, course_data, course_paths){
       })
       
       output$display_selected_answer <- shiny::renderUI({
-        shiny::req(!base::is.null(open_answer()))
-        shiny::req(base::length(open_answer()) > 0)
+        shiny::req(!base::is.null(open_answer_txt()))
+        shiny::req(base::length(open_answer_txt()) > 0)
         shiny::req(!base::is.null(modrval$solutions))
         shiny::req(base::nrow(modrval$solutions) > 0)
-        text <- base::as.character(base::unlist(open_answer()))
+        text <- base::as.character(base::unlist(open_answer_txt()))
         text <- text[(stringr::str_count(base::trimws(text), "\\W+") > 0)]
         answer_text <- base::paste0(text, collapse = "<br><br>")
         if (!base::is.null(input$slctkeywords)){
@@ -670,6 +688,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
               modrval$closed_answers,
               modrval$numeric_answers,
               modrval$open_answers,
+              modrval$open_answers_txt,
               answers
             )
             modrval$open_answers <- compiled$open_answers
@@ -958,6 +977,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
           modrval$closed_answers,
           modrval$numeric_answers,
           modrval$open_answers,
+          modrval$open_answers_txt,
           modrval$answers,
           parameter_change = selected_question()
         )
@@ -1012,6 +1032,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
           modrval$closed_answers,
           modrval$numeric_answers,
           modrval$open_answers,
+          modrval$open_answers_txt,
           modrval$answers
         )
         modrval$solutions <- compiled$solutions

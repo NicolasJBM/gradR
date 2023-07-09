@@ -67,6 +67,14 @@ write_compiled <- function(
       )
   }
   
+  if (base::nrow(compiled$open_answers) > 0){
+    utils::write.csv(
+      compiled$open_answers,
+      base::paste0(test_path, "/7_answers/open.csv"),
+      row.names = FALSE
+    )
+  }
+  
   utils::write.csv(
     compiled$answers,
     base::paste0(test_path, "/8_results/answers.csv"),
