@@ -73,18 +73,34 @@ compile_grading <- function(
   test <- NULL
   
   # Add students missing in the student list
-  not_enrolled <- base::setdiff(
-    base::union(base::union(closed_answers$student, numeric_answers$student), open_answers$student),
-    students$student
-  )
-  if (base::length(not_enrolled) > 0){
-    not_enrolled <- tibble::tibble(
-      student = not_enrolled, team = base::as.character(NA),
-      firstname = base::as.character(NA), lastname = base::as.character(NA),
-      email = base::as.character(NA), enrolled = 0
+  if (test_parameters$test_unit[1] == "student"){
+    not_enrolled <- base::setdiff(
+      base::union(base::union(closed_answers$student, numeric_answers$student), open_answers$student),
+      students$student
     )
-    students <- dplyr::bind_rows(students, not_enrolled)
-    base::rm(not_enrolled)
+    if (base::length(not_enrolled) > 0){
+      not_enrolled <- tibble::tibble(
+        student = not_enrolled, team = base::as.character(NA),
+        firstname = base::as.character(NA), lastname = base::as.character(NA),
+        email = base::as.character(NA), enrolled = 0
+      )
+      students <- dplyr::bind_rows(students, not_enrolled)
+      base::rm(not_enrolled)
+    }
+  } else {
+    not_enrolled <- base::setdiff(
+      base::union(base::union(closed_answers$student, numeric_answers$student), open_answers$student),
+      students$team
+    )
+    if (base::length(not_enrolled) > 0){
+      not_enrolled <- tibble::tibble(
+        student = base::as.character(NA), team = not_enrolled,
+        firstname = base::as.character(NA), lastname = base::as.character(NA),
+        email = base::as.character(NA), enrolled = 0
+      )
+      students <- dplyr::bind_rows(students, not_enrolled)
+      base::rm(not_enrolled)
+    }
   }
   
   

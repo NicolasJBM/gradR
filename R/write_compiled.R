@@ -39,6 +39,11 @@ write_compiled <- function(
   type <- NULL
   value <- NULL
   weight <- NULL
+  email <- NULL
+  firstname <- NULL
+  lastname <- NULL
+  student <- NULL
+  team <- NULL
   
   if (write_parameters){
     test_parameters <- compiled$test_parameters
@@ -65,6 +70,16 @@ write_compiled <- function(
           }
         )
       )
+  }
+  
+  student_list_path <- base::paste0(test_path, "/6_students/student_list.csv")
+  if (base::file.exists(student_list_path)){
+    students <- readr::read_csv(student_list_path, col_types = "ccccc")
+  } else students <- NA
+  if (base::length(students != 5) | base::nrow(students) < base::nrow(compiled$students)){
+    compiled$students |>
+      dplyr::select(student, team, firstname, lastname, email) |>
+      utils::write.csv(student_list_path, row.names = FALSE)
   }
   
   if (base::nrow(compiled$open_answers) > 0){
