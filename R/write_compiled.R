@@ -113,4 +113,45 @@ write_compiled <- function(
     base::paste0(test_path, "/8_results/student_grades.csv"),
     row.names = FALSE
   )
+  
+  if (compiled$test_parameters$test_unit[1] != "student"){
+    team_to_student <- compiled$students |>
+      dplyr::select(team, student) |>
+      base::unique()
+    
+    compiled$answers |>
+      dplyr::rename(team = student) |>
+      dplyr::left_join(team_to_student, by = "team") |>
+      dplyr::select(student, dplyr::everything()) |>
+      utils::write.csv(
+        base::paste0(test_path, "/8_results/answers_per_student.csv"),
+        row.names = FALSE
+      )
+    
+    compiled$results |>
+      dplyr::rename(team = student) |>
+      dplyr::left_join(team_to_student, by = "team") |>
+      dplyr::select(student, dplyr::everything()) |>
+      utils::write.csv(
+        base::paste0(test_path, "/8_results/results_per_student.csv"),
+        row.names = FALSE      )
+    
+    compiled$question_grades |>
+      dplyr::rename(team = student) |>
+      dplyr::left_join(team_to_student, by = "team") |>
+      dplyr::select(student, dplyr::everything()) |>
+      utils::write.csv(
+        base::paste0(test_path, "/8_results/question_grades_per_student.csv"),
+        row.names = FALSE      )
+    
+    compiled$student_grades |>
+      dplyr::rename(team = student) |>
+      dplyr::left_join(team_to_student, by = "team") |>
+      dplyr::select(student, dplyr::everything()) |>
+      utils::write.csv(
+        base::paste0(test_path, "/8_results/student_grades_per_student.csv"),
+        row.names = FALSE
+      )
+  }
+  
 }
