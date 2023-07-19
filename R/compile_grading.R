@@ -113,13 +113,15 @@ compile_grading <- function(
     dplyr::anti_join(
       dplyr::select(solutions, version, proposition),
       by = c("version", "proposition")
-    )
+    ) |>
+    dplyr::arrange(version, proposition) |>
+    base::unique()
   if (base::nrow(missing_numeric_propositions) > 0){
     missing_numeric_propositions <- missing_numeric_propositions |>
       dplyr::left_join(base::unique(
         dplyr::select(
           solutions, path, test, version, type,
-          document, language, interrogation, scale
+          language, interrogation, scale
         )
       ),
       by = "version"
@@ -128,6 +130,7 @@ compile_grading <- function(
         number = base::as.numeric(NA),
         letter = base::as.character(NA),
         item = base::as.character(NA),
+        document = base::as.character(NA),
         modifications = 0,
         value = 0,
         explanation = base::as.character(NA),
