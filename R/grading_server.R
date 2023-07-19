@@ -117,6 +117,8 @@ grading_server <- function(id, test, tree, course_data, course_paths){
       flag <- NULL
       langiso <- NULL
       observation <- NULL
+      score <- NULL
+      difficulty <- NULL
       
       ##########################################################################
       # Loading
@@ -134,6 +136,11 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         base::load(parameters_path)
         
         shiny::req(base::nrow(stats::na.omit(test_parameters)) > 0)
+        
+        shinybusy::show_modal_spinner(
+          spin = "orbit",
+          text = "Test loading..."
+        )
         
         # Solutions
         solutions <- base::list.files(base::paste0(
@@ -306,6 +313,13 @@ grading_server <- function(id, test, tree, course_data, course_paths){
           value = FALSE
         )
         
+        shinybusy::remove_modal_spinner()
+        
+        shinyalert::shinyalert(
+          title = "Test loaded!",
+          text = "All test data are now loaded.",
+          type = "success"
+        )
       })
       
       
@@ -718,11 +732,9 @@ grading_server <- function(id, test, tree, course_data, course_paths){
             earned = base::sum(earned),
             .groups = "drop"
           ) |>
-          dplyr::mutate(
-            correct = base::as.numeric(earned > 0.5 * points)
-          ) |>
-          dplyr::select(observation, code, earned, correct) |>
-          tidyr::replace_na(base::list(earned = 0, correct = 0))
+          dplyr::mutate(score = earned/points) |>
+          dplyr::select(observation, code, score, earned) |>
+          tidyr::replace_na(base::list(earned = 0, score = 0))
       })
       
       question_statistics <- shiny::reactive({
@@ -735,7 +747,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         questats <- basis_for_main_statistics() |>
           dplyr::select(-earned) |>
           teachR::statistics_get_parameters(
-            model_formula = "correct ~ success + proficiency",
+            model_formula = "correct ~ ability",
             minobs = 10
           )
         shinybusy::remove_modal_spinner()
@@ -771,16 +783,14 @@ grading_server <- function(id, test, tree, course_data, course_paths){
             tidyr::unite("observation", student, attempt, sep = "-") |>
             tidyr::unite("code", item, language, sep = "_") |>
             dplyr::select(observation, code, checked, weight, earned) |>
-            dplyr::mutate(
-              correct = dplyr::case_when(
-                checked == 0 & earned <= 0 ~ 1,
-                checked == 1 & earned > 0 ~ 1,
-                TRUE ~ 0
-              )
-            ) |>
-            dplyr::select(observation, code, correct) |>
+            dplyr::mutate(score = dplyr::case_when(
+              checked == 0 & weight <= 0 ~ 0.51,
+              checked == 1 & weight <= 0 ~ 0,
+              TRUE ~ earned/base::abs(weight)
+            )) |>
+            dplyr::select(observation, code, score) |>
             teachR::statistics_get_parameters(
-              model = stats::as.formula("correct ~ success + proficiency"),
+              model = stats::as.formula("correct ~ ability"),
               minobs = 10
             )
         })
@@ -862,19 +872,6 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         
         type <- base::unique(selected_solutions$type)
         
-        # To get frequencies of answers
-        shiny::isolate({
-          shiny::req(!base::is.null(modrval$answers))
-          shiny::req(!base::is.null(selected_student()))
-          shiny::req(!base::is.null(selected_attempt()))
-          selected_version <- modrval$answers |>
-            dplyr::filter(
-              student == selected_student(),
-              attempt == base::as.numeric(selected_attempt()),
-              version == selected_version()
-            )
-          selected_version <- selected_version$version[1]
-        })
         frequencies <- modrval$answers |>
           dplyr::group_by(version, letter) |>
           dplyr::summarise(frequency = base::sum(checked))
@@ -915,7 +912,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
             lastitem <- 1
           }
           new_row <- tibble::tibble(
-            version = selected_version,
+            version = selected_version(),
             language = selected_solutions$language[1],
             number = lastitem, letter = letters[lastitem],
             modifications = 0, value = 0, correct = 0, weight = 0,
@@ -1061,13 +1058,13 @@ grading_server <- function(id, test, tree, course_data, course_paths){
           dplyr::arrange(observation)
         
         percentage <- basis_for_main_statistics() |>
-          dplyr::select(observation, correct) |>
+          dplyr::select(observation, score) |>
           dplyr::group_by(observation) |>
-          dplyr::summarise(percentage = base::mean(correct, na.rm = TRUE), .groups = "drop") |>
+          dplyr::summarise(percentage = base::mean(score, na.rm = TRUE), .groups = "drop") |>
           dplyr::arrange(observation)
         
         fa_basis <- basis_for_main_statistics() |>
-          dplyr::select(-correct) |>
+          dplyr::select(-score) |>
           dplyr::arrange(observation) |>
           stats::na.omit() |>
           tidyr::pivot_wider(names_from = "code", values_from = "earned", values_fill = 0) |>
@@ -1160,7 +1157,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
       output$question_map <- shiny::renderPlot({
         shiny::req(!base::is.null(question_statistics()))
         question_statistics()$parameters |>
-          dplyr::select(question = code, success, discrimination, guess) |>
+          dplyr::select(question = code, difficulty, discrimination, guess) |>
           chartR::draw_composition_scatterplot()
       })
       
