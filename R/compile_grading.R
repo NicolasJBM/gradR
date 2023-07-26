@@ -351,7 +351,7 @@ compile_grading <- function(
   
   # update results to account for new compiled answers and new scoring
   aggregated_weights <- solutions |>
-    dplyr::group_by(version, number, letter, item, language, correct, scale) |>
+    dplyr::group_by(version, number, letter, item, document, language, correct, scale) |>
     dplyr::summarise(weight = base::sum(weight), .groups = "drop")
   
   question_parameters <- test_parameters |>
@@ -363,7 +363,7 @@ compile_grading <- function(
     dplyr::left_join(question_parameters, by = c("question")) |>
     dplyr::mutate(earned = checked * weight) |>
     dplyr::select(
-      student, attempt, question, version, number, letter, item,
+      student, attempt, question, version, number, letter, item, document,
       language, scale, partial_credits, penalty, points, checked, correct,
       weight, earned
     ) |>
@@ -382,7 +382,7 @@ compile_grading <- function(
       )
     ) |>
     dplyr::select(
-      student, attempt, question, version, number, letter, item,
+      student, attempt, question, version, number, letter, item, document,
       language, scale, partial_credits, penalty, points, checked, correct,
       weight, earned
     )
