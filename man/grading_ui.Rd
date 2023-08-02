@@ -10,10 +10,10 @@ grading_ui(id)
 \item{id}{Character. ID of the module to connect the user interface to the appropriate server side.}
 }
 \value{
-Save the test results in the relevant test sub-folder in the folder "5_tests".
+Save the test results in the relevant test sub-folder.
 }
 \description{
-Module allowing the user to grade and calibrate tests.
+Module allowing the user to grade, check, and calibrate tests.
 }
 \author{
 Nicolas Mangin

@@ -3,9 +3,12 @@
 #' @author Nicolas Mangin
 #' @description Function applying penalties or partial credits based on question parameters.
 #' @param results Tibble. Feedback or results used for reporting.
-#' @return Tibble with cleanr earned points.
-#' @importFrom dplyr mutate
+#' @return Tibble with clean earned points.
 #' @importFrom dplyr case_when
+#' @importFrom dplyr group_by
+#' @importFrom dplyr mutate
+#' @importFrom dplyr select
+#' @importFrom dplyr ungroup
 #' @export
 
 

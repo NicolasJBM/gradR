@@ -2,14 +2,17 @@
 #' @title Create a grading scale
 #' @author Nicolas Mangin
 #' @description Function creating the user interface to grade an item.
-#' @param letter Character. Letter in the feedbacks database.
+#' @param letter Character. Letter in the propositions database.
 #' @param proposition Character. Answer/criterion selected or given.
 #' @param scale Character. Whether the initial scale of the letter is "logical", "numeric", a "percentage", or "qualitative".
 #' @param checked Integer. 1 if the student provided this answer, 0 otherwise.
 #' @param correct Numeric. Whether the answer is correct.
 #' @param ns Function. Function assigning input IDs to the relevant module.
 #' @return A shiny user interface for checking or grading answers.
-#' @import shiny
+#' @importFrom shiny icon
+#' @importFrom shiny sliderInput
+#' @importFrom shinyWidgets prettyToggle
+#' @importFrom shinyWidgets radioGroupButtons
 #' @export
 
 

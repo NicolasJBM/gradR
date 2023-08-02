@@ -1,16 +1,20 @@
 #' @name write_compiled
 #' @title Write test results on disk
 #' @author Nicolas Mangin
-#' @description Function writing formated answers, results, and grades in the exam results folder
+#' @description Function writing formatted answers, results, and grades in the exam results folder
 #' @param compiled List. All test results.
 #' @param test_path Character. Path to the test folder.
 #' @param write_parameters Logical. Whether test parameters should be updated on disk.
 #' @param write_solutions Logical. Whether solutions should be rewritten on disk.
+#' @importFrom dplyr everything
 #' @importFrom dplyr group_by
+#' @importFrom dplyr left_join
 #' @importFrom dplyr mutate
+#' @importFrom dplyr rename
+#' @importFrom dplyr select
 #' @importFrom purrr map2
+#' @importFrom readr read_csv
 #' @importFrom tidyr nest
-#' @importFrom utils write.csv
 #' @export
 
 

@@ -9,7 +9,7 @@ grading_server(id, test, tree, course_data, course_paths)
 \arguments{
 \item{id}{Character. ID of the module to connect the user interface to the appropriate server side.}
 
-\item{test}{Reactive.. Selected test.}
+\item{test}{Reactive. Selected test.}
 
 \item{tree}{Reactive. Function containing a list of documents as a classification tree compatible with jsTreeR.}
 
@@ -18,10 +18,10 @@ grading_server(id, test, tree, course_data, course_paths)
 \item{course_paths}{Reactive. Function containing a list of paths to the different folders and databases on local disk.}
 }
 \value{
-Save the test results in the relevant test sub-folder in the folder "5_tests".
+Save the test results in the relevant test sub-folder.
 }
 \description{
-Module allowing the user to grade and calibrate tests.
+Module allowing the user to grade, check, and calibrate tests.
 }
 \author{
 Nicolas Mangin

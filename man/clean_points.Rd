@@ -10,7 +10,7 @@ clean_points(results)
 \item{results}{Tibble. Feedback or results used for reporting.}
 }
 \value{
-Tibble with cleanr earned points.
+Tibble with clean earned points.
 }
 \description{
 Function applying penalties or partial credits based on question parameters.

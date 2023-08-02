@@ -17,7 +17,7 @@ reinitialize_weights(test_parameters, feedbacks, selected_question = NULL)
 Feedback with updated weights
 }
 \description{
-Function computing new weigths for items of each question based on test parameters.
+Function computing new weights for items of each question based on test parameters.
 }
 \author{
 Nicolas Mangin

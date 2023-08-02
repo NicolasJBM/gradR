@@ -1,10 +1,23 @@
 #' @name grading_ui
 #' @title Grade tests.
 #' @author Nicolas Mangin
-#' @description Module allowing the user to grade and calibrate tests.
+#' @description Module allowing the user to grade, check, and calibrate tests.
 #' @param id Character. ID of the module to connect the user interface to the appropriate server side.
-#' @return Save the test results in the relevant test sub-folder in the folder "5_tests".
-#' @import shiny
+#' @return Save the test results in the relevant test sub-folder.
+#' @importFrom rhandsontable rHandsontableOutput
+#' @importFrom shiny NS
+#' @importFrom shiny actionButton
+#' @importFrom shiny column
+#' @importFrom shiny fluidRow
+#' @importFrom shiny icon
+#' @importFrom shiny numericInput
+#' @importFrom shiny plotOutput
+#' @importFrom shiny span
+#' @importFrom shiny tabPanel
+#' @importFrom shiny tagList
+#' @importFrom shiny uiOutput
+#' @importFrom shinyWidgets radioGroupButtons
+#' @importFrom shinydashboard tabBox
 #' @export
 
 

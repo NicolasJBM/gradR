@@ -1,5 +1,5 @@
 #' @name update_question
-#' @title Update answers
+#' @title Update question parameters
 #' @author Nicolas Mangin
 #' @description Function updating question parameters (penalty, partial credits, points) based on user input.
 #' @param test_name Character. Name of the test.

@@ -1,14 +1,19 @@
 #' @name grading_server
 #' @title Grade tests.
 #' @author Nicolas Mangin
-#' @description Module allowing the user to grade and calibrate tests.
+#' @description Module allowing the user to grade, check, and calibrate tests.
 #' @param id Character. ID of the module to connect the user interface to the appropriate server side.
-#' @param test Reactive.. Selected test.
+#' @param test Reactive. Selected test.
 #' @param tree Reactive. Function containing a list of documents as a classification tree compatible with jsTreeR.
 #' @param course_data Reactive. Function containing all the course data loaded with the course.
 #' @param course_paths Reactive. Function containing a list of paths to the different folders and databases on local disk.
-#' @return Save the test results in the relevant test sub-folder in the folder "5_tests".
+#' @return Save the test results in the relevant test sub-folder.
 #' @importFrom chartR display_curve
+#' @importFrom chartR draw_composition_scatterplot
+#' @importFrom chartR draw_correlogram
+#' @importFrom chartR draw_density_plot
+#' @importFrom chartR draw_grade_distribution
+#' @importFrom chartR draw_score_differences
 #' @importFrom dplyr anti_join
 #' @importFrom dplyr arrange
 #' @importFrom dplyr bind_rows
@@ -17,14 +22,19 @@
 #' @importFrom dplyr group_by
 #' @importFrom dplyr left_join
 #' @importFrom dplyr mutate
+#' @importFrom dplyr mutate_all
 #' @importFrom dplyr mutate_if
 #' @importFrom dplyr rename
 #' @importFrom dplyr select
+#' @importFrom dplyr starts_with
 #' @importFrom dplyr summarise
 #' @importFrom editR make_infobox
 #' @importFrom editR selection_server
+#' @importFrom editR selection_ui
 #' @importFrom knitr knit2html
+#' @importFrom psych fa
 #' @importFrom purrr map
+#' @importFrom readr locale
 #' @importFrom readr read_csv
 #' @importFrom rhandsontable hot_col
 #' @importFrom rhandsontable hot_cols
@@ -32,39 +42,54 @@
 #' @importFrom rhandsontable hot_to_r
 #' @importFrom rhandsontable renderRHandsontable
 #' @importFrom rhandsontable rhandsontable
+#' @importFrom shiny HTML
+#' @importFrom shiny NS
 #' @importFrom shiny actionButton
+#' @importFrom shiny brushedPoints
 #' @importFrom shiny checkboxGroupInput
 #' @importFrom shiny column
+#' @importFrom shiny dataTableOutput
 #' @importFrom shiny fluidRow
-#' @importFrom shiny HTML
 #' @importFrom shiny icon
 #' @importFrom shiny isolate
 #' @importFrom shiny moduleServer
-#' @importFrom shiny NS
 #' @importFrom shiny numericInput
 #' @importFrom shiny observe
 #' @importFrom shiny observeEvent
+#' @importFrom shiny plotOutput
 #' @importFrom shiny reactive
 #' @importFrom shiny reactiveValues
+#' @importFrom shiny renderDataTable
 #' @importFrom shiny renderPlot
 #' @importFrom shiny renderUI
 #' @importFrom shiny req
+#' @importFrom shiny selectInput
+#' @importFrom shiny sliderInput
+#' @importFrom shiny tagList
+#' @importFrom shiny uiOutput
+#' @importFrom shiny updateNumericInput
 #' @importFrom shiny withMathJax
+#' @importFrom shinyWidgets radioGroupButtons
+#' @importFrom shinyWidgets switchInput
+#' @importFrom shinyWidgets updateSwitchInput
 #' @importFrom shinyalert shinyalert
 #' @importFrom shinybusy remove_modal_spinner
 #' @importFrom shinybusy show_modal_spinner
 #' @importFrom shinydashboard valueBox
-#' @importFrom shinyWidgets switchInput
-#' @importFrom stats as.formula
-#' @importFrom stats na.omit
+#' @importFrom stringr str_count
 #' @importFrom stringr str_detect
 #' @importFrom stringr str_remove
 #' @importFrom stringr str_remove_all
+#' @importFrom stringr str_replace
 #' @importFrom stringr str_replace_all
 #' @importFrom stringr str_split
 #' @importFrom teachR statistics_assign_colors
 #' @importFrom teachR statistics_get_parameters
+#' @importFrom tibble column_to_rownames
+#' @importFrom tibble rownames_to_column
 #' @importFrom tibble tibble
+#' @importFrom tidyr pivot_wider
+#' @importFrom tidyr replace_na
 #' @importFrom tidyr separate
 #' @importFrom tidyr unite
 #' @importFrom tidyr unnest
@@ -119,6 +144,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
       observation <- NULL
       score <- NULL
       difficulty <- NULL
+      code <- NULL
       
       ##########################################################################
       # Loading
@@ -513,7 +539,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         shiny::req(!base::is.null(selected_student()))
         shiny::req(!base::is.null(selected_attempt()))
         shiny::req(!base::is.null(modrval$answers))
-        options <- modrval$answers |>
+        graded_items <- modrval$answers |>
           dplyr::filter(
             version == selected_version(),
             student == selected_student(),
@@ -527,13 +553,13 @@ grading_server <- function(id, test, tree, course_data, course_paths){
           dplyr::select(letter, proposition, scale, checked, correct) |>
           base::unique()
         ui <- base::list()
-        for (i in base::seq_len(base::nrow(options))){
+        for (i in base::seq_len(base::nrow(graded_items))){
           ui[[i]] <- gradR::make_scale(
-            letter = options$letter[i],
-            proposition = options$proposition[i],
-            scale = options$scale[i],
-            checked = options$checked[i],
-            correct = options$correct[i],
+            letter = graded_items$letter[i],
+            proposition = graded_items$proposition[i],
+            scale = graded_items$scale[i],
+            checked = graded_items$checked[i],
+            correct = graded_items$correct[i],
             ns
           )
         }

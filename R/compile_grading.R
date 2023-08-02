@@ -16,21 +16,23 @@
 #' @importFrom dplyr arrange
 #' @importFrom dplyr bind_rows
 #' @importFrom dplyr case_when
+#' @importFrom dplyr filter
 #' @importFrom dplyr group_by
 #' @importFrom dplyr left_join
 #' @importFrom dplyr mutate
+#' @importFrom dplyr mutate_if
+#' @importFrom dplyr n
+#' @importFrom dplyr right_join
 #' @importFrom dplyr select
 #' @importFrom dplyr summarise
 #' @importFrom dplyr ungroup
 #' @importFrom purrr map
-#' @importFrom stats na.omit
+#' @importFrom purrr map2_dbl
+#' @importFrom purrr map_dbl
 #' @importFrom stringr str_detect
 #' @importFrom stringr str_remove_all
 #' @importFrom tibble tibble
 #' @importFrom tidyr nest
-#' @importFrom tidyr replace_na
-#' @importFrom tidyr separate
-#' @importFrom tidyr unite
 #' @importFrom tidyr unnest
 #' @export
 
@@ -148,7 +150,12 @@ compile_grading <- function(
   
   # create missing numbers, letters, and and items
   possible_letters <- c(
-    letters, base::sapply(letters, function(x) base::paste0(x, letters))
+    letters,
+    base::vapply(
+      letters,
+      function(x) base::paste0(x, letters),
+      base::character(26)
+    )
   )
   solutions <- solutions |>
     dplyr::group_by(version) |>
@@ -170,7 +177,7 @@ compile_grading <- function(
   if (base::length(stats::na.omit(max_extra)) > 0) {
     max_extra <- base::max(stats::na.omit(max_extra))+1
   } else max_extra <- 1
-  for (i in 1:nrow(solutions)){
+  for (i in base::seq_len(base::nrow(solutions))){
     if (base::is.na(solutions$item[i])){
       solutions$item[i] <- base::paste0("EXTRAITEM", max_extra)
       max_extra <- max_extra+1
@@ -185,7 +192,7 @@ compile_grading <- function(
     dplyr::select(version, penalty, points) |>
     dplyr::left_join(
       dplyr::select(solutions, version, item, letter, correct, weight),
-      by = c("version")
+      by = "version"
     ) |>
     dplyr::group_by(version, letter) |>
     dplyr::mutate(duplication = dplyr::n()) |>
@@ -360,7 +367,7 @@ compile_grading <- function(
   
   results <- answers |>
     dplyr::left_join(aggregated_weights, by = c("version","letter")) |>
-    dplyr::left_join(question_parameters, by = c("question")) |>
+    dplyr::left_join(question_parameters, by = "question") |>
     dplyr::mutate(earned = checked * weight) |>
     dplyr::select(
       student, attempt, question, version, number, letter, item, document,

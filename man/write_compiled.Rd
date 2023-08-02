@@ -21,7 +21,7 @@ write_compiled(
 \item{write_solutions}{Logical. Whether solutions should be rewritten on disk.}
 }
 \description{
-Function writing formated answers, results, and grades in the exam results folder
+Function writing formatted answers, results, and grades in the exam results folder
 }
 \author{
 Nicolas Mangin

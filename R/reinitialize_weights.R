@@ -1,18 +1,18 @@
 #' @name reinitialize_weights
 #' @title Re-initialize weights
 #' @author Nicolas Mangin
-#' @description Function computing new weigths for items of each question based on test parameters.
+#' @description Function computing new weights for items of each question based on test parameters.
 #' @param test_parameters Tibble. Test parameters.
 #' @param feedbacks Tibble. Local feedback files combined.
 #' @param selected_question Character. Question file if one question in particular is targeted.
 #' @return Feedback with updated weights
-#' @importFrom dplyr select
-#' @importFrom dplyr left_join
-#' @importFrom dplyr group_by
-#' @importFrom dplyr summarise
-#' @importFrom dplyr mutate
 #' @importFrom dplyr case_when
-#' @importFrom dplyr ungroup
+#' @importFrom dplyr group_by
+#' @importFrom dplyr left_join
+#' @importFrom dplyr mutate
+#' @importFrom dplyr n
+#' @importFrom dplyr select
+#' @importFrom dplyr summarise
 #' @export
 
 reinitialize_weights <- function(

@@ -2,7 +2,7 @@
 % Please edit documentation in R/update_question.R
 \name{update_question}
 \alias{update_question}
-\title{Update answers}
+\title{Update question parameters}
 \usage{
 update_question(
   test_name = NULL,

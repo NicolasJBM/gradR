@@ -7,7 +7,7 @@
 make_scale(letter, proposition, scale, checked, correct, ns)
 }
 \arguments{
-\item{letter}{Character. Letter in the feedbacks database.}
+\item{letter}{Character. Letter in the propositions database.}
 
 \item{proposition}{Character. Answer/criterion selected or given.}
 
