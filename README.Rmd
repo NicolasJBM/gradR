@@ -16,6 +16,7 @@ knitr::opts_chunk$set(
 # gradR
 
 <!-- badges: start -->
+[![DOI](https://zenodo.org/badge/510263454.svg)](https://zenodo.org/badge/latestdoi/510263454)
 [![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
 [![CRAN status](https://www.r-pkg.org/badges/version/gradR)](https://CRAN.R-project.org/package=gradR)
 [![R-CMD-check](https://github.com/NicolasJBM/gradR/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/NicolasJBM/gradR/actions/workflows/R-CMD-check.yaml)
