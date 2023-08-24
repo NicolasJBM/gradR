@@ -163,9 +163,14 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         shiny::req(base::nrow(stats::na.omit(test_parameters)) > 0)
         
         # Check that at least some solutions have been created
-        solutions <- base::paste0(test_path, "/4_solutions") |>
-          base::list.files(full.names = TRUE)
-        shiny::req(base::length(solutions) > 0)
+        solutions_files <- base::paste0(test_path, "/4_solutions") |>
+          base::list.files(full.names = FALSE)
+        shiny::req(base::length(solutions_files) > 0)
+        
+        # Check that answers have been imported
+        answers_files <- base::paste0(test_path, "/7_answers") |>
+          base::list.files(full.names = FALSE, recursive = TRUE)
+        shiny::req(base::length(answers_files) > 0)
         
         shinybusy::show_modal_spinner(
           spin = "orbit",
