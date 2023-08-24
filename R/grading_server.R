@@ -788,41 +788,6 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         base::list(document_parameters = document_parameters)
       })
       
-      item_statistics <- shiny::reactive({
-        shiny::req(!base::is.null(input$refresh_itemstats))
-        input$refresh_itemstats
-        shiny::isolate({
-          shiny::req(!base::is.null(modrval$results))
-          prelimcheck <- modrval$results |>
-            dplyr::select(student, question, item) |>
-            stats::na.omit() |>
-            base::unique()
-          nbrstudents <- base::length(base::unique(prelimcheck$student))
-          nbritems <- base::nrow(prelimcheck)
-          shiny::req(nbrstudents >= 10)
-          shiny::req(nbritems >= 3)
-          shinybusy::show_modal_spinner(
-            spin = "orbit",
-            text = "Please wait while item statistics are computed..."
-          )
-          itemstats <- modrval$results |>
-            tidyr::unite("observation", student, attempt, sep = "-") |>
-            tidyr::unite("code", item, language, sep = "_") |>
-            dplyr::select(observation, code, checked, weight, earned) |>
-            dplyr::mutate(score = dplyr::case_when(
-              checked == 0 & weight <= 0 ~ 0.51,
-              checked == 1 & weight <= 0 ~ 0,
-              TRUE ~ earned/base::abs(weight)
-            )) |>
-            dplyr::select(observation, code, score) |>
-            teachR::statistics_get_parameters(
-              model = stats::as.formula("correct ~ ability"),
-              minobs = 10
-            )
-        })
-        shinybusy::remove_modal_spinner()
-        itemstats
-      })
       
       
       ##########################################################################
@@ -898,23 +863,20 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         
         type <- base::unique(selected_solutions$type)
         
-        frequencies <- modrval$answers |>
+        item_metrics <- modrval$results |>
           dplyr::group_by(version, letter) |>
-          dplyr::summarise(frequency = base::sum(checked))
-        
-        # To get item statistics
-        if (!base::is.null(item_statistics())) {
-          show_item_statistics <- item_statistics()$parameters |>
-            tidyr::separate(code, into = c("item","language"), sep = "_") |>
-            dplyr::select(item, language, success, discrimination)
-        } else {
-          show_item_statistics <- tibble::tibble(
-            item = base::character(0),
-            language = base::character(0),
-            success = base::numeric(0),
-            discrimination = base::numeric(0)
-          )
-        }
+          dplyr::mutate(checked = base::as.numeric(checked >= 0.5)) |>
+          dplyr::summarise(
+            count = dplyr::n(),
+            checked = base::sum(checked),
+            weight = base::sum(weight),
+            earned = base::sum(earned)
+          ) |>
+          dplyr::mutate(
+            checked = base::round(checked/count, 2),
+            earned = base::round(earned/weight, 2),
+          ) |>
+          dplyr::select(version, letter, count, checked, earned)
         
         selected_solutions <- selected_solutions |>
           dplyr::select(
@@ -927,9 +889,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
               "logical","qualitative","percentage"
             ))
           ) |>
-          dplyr::left_join(frequencies, by = c("version","letter")) |>
-          dplyr::left_join(show_item_statistics, by = c("item","language"))
-        
+          dplyr::left_join(item_metrics, by = c("version","letter"))
         
         if (type %in% c("Essay","Problem")){
           if (base::length(stats::na.omit(selected_solutions$number)) > 0){
@@ -942,7 +902,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
             language = selected_solutions$language[1],
             number = lastitem, letter = letters[lastitem],
             modifications = 0, value = 0, correct = 0, weight = 0,
-            frequency = 0, success = 0, discrimination = 0, remove = TRUE
+            count = 0, checked = 0, earned = 0, remove = TRUE
           )
           selected_solutions |>
             dplyr::mutate(remove = FALSE) |>
