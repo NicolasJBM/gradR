@@ -160,8 +160,12 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         # Test parameters
         shiny::req(base::file.exists(parameters_path))
         base::load(parameters_path)
-        
         shiny::req(base::nrow(stats::na.omit(test_parameters)) > 0)
+        
+        # Check that at least some solutions have been created
+        solutions <- base::paste0(test_path, "/4_solutions") |>
+          base::list.files(full.names = TRUE)
+        shiny::req(base::length(solutions) > 0)
         
         shinybusy::show_modal_spinner(
           spin = "orbit",
