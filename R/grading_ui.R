@@ -52,12 +52,6 @@ grading_ui <- function(id){
     shinydashboard::tabBox(
       side = "left", width = "100%",
       shiny::tabPanel(
-        title = shiny::span(
-          shiny::icon("chalkboard"), "Resources",
-          title = "Resources to help you grade students.",
-        )
-      ),
-      shiny::tabPanel(
         title = shiny::tagList(
           shiny::icon("tasks"),
           shiny::span(
