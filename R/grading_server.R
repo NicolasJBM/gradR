@@ -48,7 +48,7 @@
 #' @importFrom shiny brushedPoints
 #' @importFrom shiny checkboxGroupInput
 #' @importFrom shiny column
-#' @importFrom shiny dataTableOutput
+#' @importFrom DT dataTableOutput
 #' @importFrom shiny fluidRow
 #' @importFrom shiny icon
 #' @importFrom shiny isolate
@@ -59,7 +59,7 @@
 #' @importFrom shiny plotOutput
 #' @importFrom shiny reactive
 #' @importFrom shiny reactiveValues
-#' @importFrom shiny renderDataTable
+#' @importFrom DT renderDataTable
 #' @importFrom shiny renderPlot
 #' @importFrom shiny renderUI
 #' @importFrom shiny req
@@ -1106,7 +1106,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
               ),
               shiny::column(
                 2,
-                shiny::dataTableOutput(ns("selection"))
+                DT::dataTableOutput(ns("selection"))
               )
             )
           )
@@ -1240,7 +1240,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
           chartR::draw_score_differences(brushed_students())
       })
       
-      output$selection <- shiny::renderDataTable({
+      output$selection <- DT::renderDataTable({
         shiny::req(!base::is.null(allscores()))
         shiny::req(!base::is.null(brushed_students()))
         allscores() |>
