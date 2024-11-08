@@ -74,6 +74,8 @@ compile_grading <- function(
   standard_weight <- NULL
   test <- NULL
   
+  languages <- stringr::str_split(test_parameters$test_languages,";", simplify = TRUE)
+  
   # Add students missing in the student list
   if (test_parameters$test_unit[1] == "student"){
     not_enrolled <- base::setdiff(
@@ -205,7 +207,7 @@ compile_grading <- function(
     ) |>
     dplyr::ungroup() |>
     dplyr::mutate(
-      standard_weight = points*duplication*(correct/nbrcorrect-penalty*(1-correct)/max(1,nbrincorrect)) #Change this so that when there is duplication, weight are correct weighted by points
+      standard_weight = points*duplication*(correct/nbrcorrect-penalty*(1-correct)/base::max(1,nbrincorrect)) #Change this so that when there is duplication, weight are correct weighted by points
     ) |>
     dplyr::mutate(
       standard_weight = dplyr::case_when(
@@ -215,21 +217,34 @@ compile_grading <- function(
     ) |>
     dplyr::select(version, item, letter, standard_weight)
   
+  tmpsc <- base::list()
+  for (languiso in languages){
+    tmpsc[[languiso]] <- standard_scoring |>
+      dplyr::mutate(version = stringr::str_replace_all(version, "^..", languiso))
+  }
+  standard_scoring <- dplyr::bind_rows(tmpsc)
   
   
   # Update solutions weights with new standard scoring
   solutions <- solutions |>
     dplyr::left_join(standard_scoring, by = c("version","item","letter"))
   if (!base::is.na(parameter_change)){
+    
     selected_versions <- test_parameters |>
       dplyr::filter(question == parameter_change)
-    solutions <- solutions |>
-      dplyr::mutate(
-        weight = dplyr::case_when(
-          version %in% selected_versions$version ~ standard_weight,
-          TRUE ~ weight
+    slctversions <- selected_versions$version
+    
+    for (languiso in languages){
+      slctversions <- stringr::str_replace_all(slctversions, "^..", "languiso")
+      solutions <- solutions |>
+        dplyr::mutate(
+          weight = dplyr::case_when(
+            version %in% slctversions ~ standard_weight,
+            TRUE ~ weight
+          )
         )
-      )
+    }
+    
   } else {
     solutions <- solutions |>
       dplyr::mutate(
@@ -338,6 +353,10 @@ compile_grading <- function(
       by = c("version","letter")
     ) |>
     dplyr::mutate(
+      question = dplyr::case_when(
+        base::is.na(question) ~ stringr::str_replace_all(version, "^..", "US"),
+        TRUE ~ question
+      ),
       checked = dplyr::case_when(
         questype == "closed" ~ raw_checked,
         questype == "numeric" ~ raw_checked,

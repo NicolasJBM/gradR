@@ -36,6 +36,7 @@
 #' @importFrom purrr map
 #' @importFrom readr locale
 #' @importFrom readr read_csv
+#' @importFrom readr guess_encoding
 #' @importFrom rhandsontable hot_col
 #' @importFrom rhandsontable hot_cols
 #' @importFrom rhandsontable hot_context_menu
@@ -145,6 +146,8 @@ grading_server <- function(id, test, tree, course_data, course_paths){
       score <- NULL
       difficulty <- NULL
       code <- NULL
+      confidence <- NULL
+      encoding <- NULL
       
       ##########################################################################
       # Loading
@@ -153,24 +156,68 @@ grading_server <- function(id, test, tree, course_data, course_paths){
       
       shiny::observe({
         
-        test_name <- test()$test[1]
-        test_path <- base::paste0(course_paths()$subfolders$tests, "/", test_name)
-        parameters_path <- base::paste0(test_path, "/test_parameters.RData")
+        if (base::length(course_paths) == 1){
+          test_name <- "freetest"
+          test_path <- base::paste0(course_paths,"/")
+          parameters_path <- "test_parameters.RData"
+          
+          # Check that at least some solutions have been created
+          solutions_files <- base::paste0(test_path, "4_solutions") |>
+            base::list.files(full.names = FALSE)
+          shiny::req(base::length(solutions_files) > 0)
+          
+          # Check that answers have been imported
+          answers_files <- base::paste0(test_path, "7_answers") |>
+            base::list.files(full.names = FALSE, recursive = TRUE)
+          shiny::req(base::length(answers_files) > 0)
+          
+          if (base::file.exists(parameters_path)){
+            shiny::req(base::file.exists(parameters_path))
+            base::load(parameters_path)
+          } else {
+            
+            versions <- solutions_files |>
+              stringr::str_remove_all(".csv$")
+            
+            languages <- stringr::str_extract(versions, "^..") |>
+              base::paste(collapse = ";")
+            
+            versions <- versions[stringr::str_detect(versions, "US")]
+            
+            test_parameters <- tibble::tibble(
+              tree = "free",
+              test = "freetest",
+              test_format = "quiz",
+              test_unit = "student",
+              test_assessment = "formative",
+              test_documentation = "open-book",
+              test_languages = languages,
+              test_date = base::as.character(base::Sys.Date()),
+              test_duration = 0,
+              test_points = 10,
+              show_version = FALSE,
+              show_points = FALSE,
+              question = versions,
+              section = "A",
+              bloc = "A",
+              altnbr = 0,
+              points = 10,
+              partial_credits = TRUE,
+              penalty = FALSE,
+              version = versions,
+              seed = 123456789
+            )
+            base::save(test_parameters, file = parameters_path)
+          }
+        } else {
+          test_name <- test()$test[1]
+          test_path <- base::paste0(course_paths()$subfolders$tests, "/", test_name,"/")
+          parameters_path <- base::paste0(test_path, "/test_parameters.RData")
+          shiny::req(base::file.exists(parameters_path))
+          base::load(parameters_path)
+          shiny::req(base::nrow(stats::na.omit(test_parameters)) > 0)
+        }
         
-        # Test parameters
-        shiny::req(base::file.exists(parameters_path))
-        base::load(parameters_path)
-        shiny::req(base::nrow(stats::na.omit(test_parameters)) > 0)
-        
-        # Check that at least some solutions have been created
-        solutions_files <- base::paste0(test_path, "/4_solutions") |>
-          base::list.files(full.names = FALSE)
-        shiny::req(base::length(solutions_files) > 0)
-        
-        # Check that answers have been imported
-        answers_files <- base::paste0(test_path, "/7_answers") |>
-          base::list.files(full.names = FALSE, recursive = TRUE)
-        shiny::req(base::length(answers_files) > 0)
         
         shinybusy::show_modal_spinner(
           spin = "orbit",
@@ -179,7 +226,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         
         # Solutions
         solutions <- base::list.files(base::paste0(
-          test_path, "/4_solutions"
+          test_path, "4_solutions"
         ), full.names = TRUE)
         if (base::length(solutions) > 0){
           solutions <- tibble::tibble(
@@ -193,7 +240,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         
         # Students
         students <- base::paste0(
-          test_path, "/6_students/student_list.csv"
+          test_path, "6_students/student_list.csv"
         )
         if (base::file.exists(students)){
           students <- readr::read_csv(students, col_types = "ccccc") |>
@@ -211,7 +258,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         
         # Raw answers
         closed_answers <- base::paste0(
-          test_path, "/7_answers/closed.csv"
+          test_path, "7_answers/closed.csv"
         )
         if (base::file.exists(closed_answers)){
           closed_answers <- readr::read_csv(closed_answers, col_types = "cncc")
@@ -225,7 +272,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         }
         
         numeric_answers <- base::paste0(
-          test_path, "/7_answers/numeric.csv"
+          test_path, "7_answers/numeric.csv"
         )
         if (base::file.exists(numeric_answers)){
           numeric_answers <- readr::read_csv(numeric_answers, col_types = "cncc")
@@ -239,7 +286,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         }
         
         open_answers <- base::paste0(
-          test_path, "/7_answers/open.csv"
+          test_path, "7_answers/open.csv"
         )
         if (base::file.exists(open_answers)){
           open_answers <- readr::read_csv(open_answers, col_types = "cnccn")
@@ -254,19 +301,29 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         }
         
         open_answers_txt <- base::list.files(base::paste0(
-          test_path, "/7_answers/open"
+          test_path, "7_answers/open"
         ), full.names = FALSE)
         if (base::length(open_answers_txt) > 0){
           open_answers_txt <- tibble::tibble(
             file_name = open_answers_txt
           ) |>
             dplyr::mutate(file_path = base::paste0(
-              test_path, "/7_answers/open/", file_name
+              test_path, "7_answers/open/", file_name
             )) |>
             dplyr::mutate(
-              text = purrr::map(
+              encoding = purrr::map_chr(file_path, function(x){
+                readr::guess_encoding(x) |>
+                  dplyr::filter(confidence == base::max(confidence)) |>
+                  dplyr::slice_head(n = 1) |>
+                  dplyr::select(encoding) |>
+                  base::as.character()
+              }),
+              text = purrr::map2(
                 file_path,
-                readr::read_lines, locale = readr::locale(encoding = "Latin1")
+                encoding,
+                function(x,y){
+                  readr::read_lines(file = x, locale = readr::locale(encoding = y))
+                }
               )
             ) |>
             tidyr::separate(file_name, into = c("record","version"), sep = "_") |>
@@ -287,7 +344,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         
         # Compiled answers
         answers <- base::paste0(
-          test_path, "/8_results/answers.csv"
+          test_path, "8_results/answers.csv"
         )
         if (base::file.exists(answers)){
           answers <- readr::read_csv(answers, col_types = "cncccn")
@@ -363,10 +420,20 @@ grading_server <- function(id, test, tree, course_data, course_paths){
       
       output$slctlanguage <- shiny::renderUI({
         shiny::req(!base::is.null(modrval$test_parameters))
-        shiny::req(base::nrow(modrval$test_parameters) > 1)
-        exam_languages <- course_data()$languages |>
-          dplyr::select(langiso, language, flag) |>
-          dplyr::filter(langiso %in% modrval$test_parameters$test_languages[1])
+        shiny::req(base::nrow(modrval$test_parameters) > 0)
+        
+        test_languages <- modrval$test_parameters$test_languages[1] |>
+          stringr::str_split(pattern = ";", simplify = TRUE)
+        
+        if (base::length(course_paths) == 1){
+          langfile <- base::paste0(course_paths,"/languages.csv")
+          exam_languages <- utils::read.csv(langfile)
+        } else {
+          exam_languages <- course_data()$languages
+        }
+        exam_languages <- exam_languages |>
+          dplyr::filter(langiso %in% test_languages)
+        
         shinyWidgets::radioGroupButtons(
           inputId = ns("slctexamlang"), label = NULL,
           choiceNames = base::lapply(
@@ -430,7 +497,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
       questions <- shiny::reactive({
         shiny::req(!base::is.null(modrval$selection_basis))
         shiny::req(base::nrow(modrval$selection_basis) > 0)
-        shiny::req(base::length(test()) > 1)
+        #shiny::req(base::length(test()) > 1)
         shiny::req(base::length(input$focus) > 0)
         if (input$focus == "student") {
           shiny::req(!base::is.null(selected_version()))
@@ -439,9 +506,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
             dplyr::select(question) |> base::unique() |>
             base::unlist() |> base::as.character()
         } else {
-          shiny::req(!base::is.null(input$slctexamlang))
           questions <- modrval$selection_basis |>
-            dplyr::filter(stringr::str_detect(question, input$slctexamlang)) |>
             dplyr::select(question) |> base::unique() |>
             base::unlist() |> base::as.character()
         }
@@ -451,11 +516,13 @@ grading_server <- function(id, test, tree, course_data, course_paths){
       
       versions <- shiny::reactive({
         shiny::req(base::length(input$focus) > 0)
+        shiny::req(!base::is.null(input$slctexamlang))
         if (input$focus == "student") {
           shiny::req(!base::is.null(selected_student()))
           shiny::req(!base::is.null(selected_attempt()))
           shiny::req(base::nrow(modrval$selection_basis) > 0)
           versions <- modrval$selection_basis |>
+            dplyr::filter(stringr::str_detect(version, input$slctexamlang)) |>
             dplyr::filter(student == selected_student()) |>
             dplyr::filter(attempt == base::as.numeric(selected_attempt())) |>
             dplyr::select(version) |> base::unique() |>
@@ -464,6 +531,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
           shiny::req(!base::is.null(selected_question()))
           shiny::req(base::nrow(modrval$selection_basis) > 0)
           versions <- modrval$selection_basis |>
+            dplyr::filter(stringr::str_detect(version, input$slctexamlang)) |>
             dplyr::filter(question == selected_question()) |>
             dplyr::select(version) |> base::unique() |>
             base::unlist() |> base::as.character()
@@ -476,7 +544,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         shiny::req(!base::is.null(modrval$selection_basis))
         shiny::req(base::nrow(modrval$selection_basis) > 0)
         shiny::req(base::length(input$focus) > 0)
-        shiny::req(base::length(test()) > 1)
+        #shiny::req(base::length(test()) > 1)
         if (input$focus == "student") {
           shiny::req(!base::is.null(input$slctexamlang))
           students <- modrval$selection_basis |>
@@ -499,7 +567,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         shiny::req(!base::is.null(modrval$selection_basis))
         shiny::req(base::nrow(modrval$selection_basis) > 0)
         shiny::req(base::length(input$focus) > 0)
-        shiny::req(base::length(test()) > 1)
+        #shiny::req(base::length(test()) > 1)
         shiny::req(!base::is.null(selected_student()))
         if (input$focus == "student") {
           attempts <- modrval$selection_basis |>
