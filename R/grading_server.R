@@ -616,6 +616,14 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         shiny::req(!base::is.null(selected_student()))
         shiny::req(!base::is.null(selected_attempt()))
         shiny::req(!base::is.null(modrval$answers))
+        
+        typequest <- modrval$solutions |>
+          dplyr::filter(version == selected_version()) |>
+          dplyr::select(type) |>
+          base::unlist() |>
+          base::as.character() |>
+          base::unique()
+        
         graded_items <- modrval$answers |>
           dplyr::filter(
             version == selected_version(),
@@ -625,10 +633,22 @@ grading_server <- function(id, test, tree, course_data, course_paths){
           dplyr::left_join(base::unique(dplyr::select(
             modrval$solutions, version, number, letter, scale,
             proposition, interrogation, keywords, correct
-          )), by = c("version","letter")) |>
-          dplyr::arrange(letter) |>
-          dplyr::select(letter, proposition, scale, checked, correct) |>
-          base::unique()
+          )), by = c("version","letter"))
+        
+        if (typequest %in% c("Essay","Problem")){
+          print("YES")
+          graded_items <- graded_items |>
+            dplyr::arrange(proposition) |>
+            dplyr::select(letter, proposition, scale, checked, correct) |>
+            base::unique()
+        } else {
+          print("NO")
+          graded_items <- graded_items |>
+            dplyr::arrange(letter) |>
+            dplyr::select(letter, proposition, scale, checked, correct) |>
+            base::unique()
+        }
+        
         ui <- base::list()
         for (i in base::seq_len(base::nrow(graded_items))){
           ui[[i]] <- gradR::make_scale(
