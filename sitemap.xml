@@ -1,42 +1,16 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url>
-    <loc>/404.html</loc>
-  </url>
-  <url>
-    <loc>/LICENSE-text.html</loc>
-  </url>
-  <url>
-    <loc>/authors.html</loc>
-  </url>
-  <url>
-    <loc>/index.html</loc>
-  </url>
-  <url>
-    <loc>/reference/clean_points.html</loc>
-  </url>
-  <url>
-    <loc>/reference/compile_grading.html</loc>
-  </url>
-  <url>
-    <loc>/reference/grading_server.html</loc>
-  </url>
-  <url>
-    <loc>/reference/grading_ui.html</loc>
-  </url>
-  <url>
-    <loc>/reference/index.html</loc>
-  </url>
-  <url>
-    <loc>/reference/make_scale.html</loc>
-  </url>
-  <url>
-    <loc>/reference/reinitialize_weights.html</loc>
-  </url>
-  <url>
-    <loc>/reference/update_question.html</loc>
-  </url>
-  <url>
-    <loc>/reference/write_compiled.html</loc>
-  </url>
+<urlset xmlns = 'http://www.sitemaps.org/schemas/sitemap/0.9'>
+<url><loc>/404.html</loc></url>
+<url><loc>/LICENSE-text.html</loc></url>
+<url><loc>/authors.html</loc></url>
+<url><loc>/index.html</loc></url>
+<url><loc>/reference/clean_points.html</loc></url>
+<url><loc>/reference/compile_grading.html</loc></url>
+<url><loc>/reference/grading_server.html</loc></url>
+<url><loc>/reference/grading_ui.html</loc></url>
+<url><loc>/reference/index.html</loc></url>
+<url><loc>/reference/make_scale.html</loc></url>
+<url><loc>/reference/reinitialize_weights.html</loc></url>
+<url><loc>/reference/update_question.html</loc></url>
+<url><loc>/reference/write_compiled.html</loc></url>
 </urlset>
+
