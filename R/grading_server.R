@@ -261,11 +261,11 @@ grading_server <- function(id, test, tree, course_data, course_paths){
           test_path, "7_answers/closed.csv"
         )
         if (base::file.exists(closed_answers)){
-          closed_answers <- readr::read_csv(closed_answers, col_types = "cncc")
+          closed_answers <- readr::read_csv(closed_answers, col_types = "cccc")
         } else {
           closed_answers <- tibble::tibble(
             student = base::character(0),
-            attempt = base::numeric(0),
+            attempt = base::character(0),
             version = base::character(0),
             letter = base::character(0)
           )
@@ -275,11 +275,11 @@ grading_server <- function(id, test, tree, course_data, course_paths){
           test_path, "7_answers/numeric.csv"
         )
         if (base::file.exists(numeric_answers)){
-          numeric_answers <- readr::read_csv(numeric_answers, col_types = "cncc")
+          numeric_answers <- readr::read_csv(numeric_answers, col_types = "cccc")
         } else {
           numeric_answers <- tibble::tibble(
             student = base::character(0),
-            attempt = base::numeric(0),
+            attempt = base::character(0),
             version = base::character(0),
             proposition = base::character(0)
           )
@@ -289,11 +289,11 @@ grading_server <- function(id, test, tree, course_data, course_paths){
           test_path, "7_answers/open.csv"
         )
         if (base::file.exists(open_answers)){
-          open_answers <- readr::read_csv(open_answers, col_types = "cnccn")
+          open_answers <- readr::read_csv(open_answers, col_types = "ccccn")
         } else {
           open_answers <- tibble::tibble(
             student = base::character(0),
-            attempt = base::numeric(0),
+            attempt = base::character(0),
             version = base::character(0),
             letter = base::character(0),
             checked = base::numeric(0)
@@ -329,14 +329,14 @@ grading_server <- function(id, test, tree, course_data, course_paths){
             tidyr::separate(file_name, into = c("record","version"), sep = "_") |>
             tidyr::separate(record, into = c("student","attempt"), sep = "-") |>
             dplyr::mutate(
-              attempt = base::as.numeric(attempt),
+              attempt = base::as.character(attempt),
               version = stringr::str_remove_all(version, ".txt")
             ) |>
             dplyr::select(student, attempt, version, text)
         } else {
           open_answers_txt <- tibble::tibble(
             student = base::character(0),
-            attempt = base::numeric(0),
+            attempt = base::character(0),
             version = base::character(0),
             text = base::numeric(0)
           )
@@ -347,11 +347,11 @@ grading_server <- function(id, test, tree, course_data, course_paths){
           test_path, "8_results/answers.csv"
         )
         if (base::file.exists(answers)){
-          answers <- readr::read_csv(answers, col_types = "cncccn")
+          answers <- readr::read_csv(answers, col_types = "cccccn")
         } else {
           answers <- tibble::tibble(
             student = base::character(0),
-            attempt = base::numeric(0),
+            attempt = base::character(0),
             question = base::character(0),
             version = base::character(0),
             letter = base::character(0),
@@ -620,7 +620,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
           dplyr::filter(
             version == selected_version(),
             student == selected_student(),
-            attempt == base::as.numeric(selected_attempt())
+            attempt == selected_attempt()
           ) |>
           dplyr::left_join(base::unique(dplyr::select(
             modrval$solutions, version, number, letter, scale,
@@ -753,7 +753,11 @@ grading_server <- function(id, test, tree, course_data, course_paths){
       })
       
       shiny::observeEvent(input$save_checks, {
-          shiny::req(!base::is.null(selected_version()))
+        shiny::req(!base::is.null(selected_version()))
+        
+        if (base::length(course_paths) == 1) {
+          versiontype <- "Essay"
+        } else {
           versiontype <- modrval$test_parameters |>
             dplyr::filter(version == selected_version()) |>
             dplyr::left_join(
@@ -761,61 +765,70 @@ grading_server <- function(id, test, tree, course_data, course_paths){
               by = "question"
             )
           versiontype <- versiontype$type[[1]]
-          if (!(versiontype %in% c("Essay","Problem"))){
-            shinyalert::shinyalert("No change allowed!", "Answers to multiple-choice and numeric questions cannot be modified; this form is meant to be changed only to grade open-ended answers.", "error")
-          } else {
-            checkinput <- base::names(input)
-            checkinput <- checkinput[stringr::str_detect(checkinput, "check_")]
-            nbr <- base::length(checkinput)
-            letters <- base::character(nbr)
-            checks <- base::character(nbr)
-            for (i in base::seq_len(nbr)){
-              letters[i] <- stringr::str_remove(checkinput[i], "check_")
-              checks[i] <- input[[checkinput[i]]]
-            }
-            update_answer <- tibble::tibble(
-                student = selected_student(),
-                attempt = selected_attempt(),
-                question = selected_question(), 
-                version = selected_version(),
-                letter = base::as.character(letters),
-                checked_chr = base::as.character(checks)
-              ) |>
-              dplyr::mutate(
-                checked = dplyr::case_when(
-                  checked_chr == "1" ~ 1,
-                  checked_chr == "TRUE" ~ 1,
-                  checked_chr == "0.5" ~ 0.5,
-                  checked_chr == "0" ~ 0,
-                  checked_chr == "FALSE" ~ 0,
-                  checked_chr == "-0.5" ~ -0.5,
-                  TRUE ~ 0
-                )
-              ) |>
-              dplyr::select(-checked_chr) |>
-              dplyr::arrange(letter)
-            answers <- modrval$answers |>
-              dplyr::anti_join(update_answer, by = c("student","attempt","question","version")) |>
-              dplyr::bind_rows(update_answer) |>
-              dplyr::arrange(student, version, letter)
-            compiled <- gradR::compile_grading(
-              modrval$test_parameters,
-              modrval$solutions,
-              modrval$students,
-              modrval$closed_answers,
-              modrval$numeric_answers,
-              modrval$open_answers,
-              modrval$open_answers_txt,
-              answers
-            )
-            modrval$open_answers <- compiled$open_answers
-            modrval$answers <- compiled$answers
-            modrval$scoring <- compiled$scoring
-            modrval$results <- compiled$results
-            modrval$question_grades <- compiled$question_grades
-            modrval$student_grades <- compiled$student_grades
-            gradR::write_compiled(compiled, modrval$test_path)
-            shinyalert::shinyalert("Saved!", "Grading has been updated.", "success")
+        }
+        
+        if (!(versiontype %in% c("Essay","Problem"))){
+          shinyalert::shinyalert("No change allowed!", "Answers to multiple-choice and numeric questions cannot be modified; this form is meant to be changed only to grade open-ended answers.", "error")
+        } else {
+          checkinput <- base::names(input)
+          checkinput <- checkinput[stringr::str_detect(checkinput, "check_")]
+          nbr <- base::length(checkinput)
+          letters <- base::character(nbr)
+          checks <- base::character(nbr)
+          for (i in base::seq_len(nbr)){
+            letters[i] <- stringr::str_remove(checkinput[i], "check_")
+            checks[i] <- input[[checkinput[i]]]
+          }
+          update_answer <- tibble::tibble(
+              student = selected_student(),
+              attempt = selected_attempt(),
+              question = selected_question(), 
+              version = selected_version(),
+              letter = base::as.character(letters),
+              checked_chr = base::as.character(checks)
+            ) |>
+            dplyr::mutate(
+              checked = dplyr::case_when(
+                checked_chr == "1" ~ 1,
+                checked_chr == "TRUE" ~ 1,
+                checked_chr == "0.5" ~ 0.5,
+                checked_chr == "0" ~ 0,
+                checked_chr == "FALSE" ~ 0,
+                checked_chr == "-0.5" ~ -0.5,
+                TRUE ~ 0
+              )
+            ) |>
+            dplyr::select(-checked_chr) |>
+            dplyr::arrange(letter)
+          
+          answers <- modrval$answers |>
+            dplyr::anti_join(update_answer, by = c("student","attempt","question","version")) |>
+            dplyr::bind_rows(update_answer) |>
+            dplyr::arrange(student, version, letter)
+          
+          open_answers <- answers |>
+            dplyr::filter(version %in% modrval$open_answers$version) |>
+            dplyr::select(student, attempt, version, letter, checked) |>
+            dplyr::arrange(student, attempt, version, letter)
+          
+          compiled <- gradR::compile_grading(
+            modrval$test_parameters,
+            modrval$solutions,
+            modrval$students,
+            modrval$closed_answers,
+            modrval$numeric_answers,
+            open_answers,
+            modrval$open_answers_txt,
+            answers
+          )
+          modrval$open_answers <- compiled$open_answers
+          modrval$answers <- compiled$answers
+          modrval$scoring <- compiled$scoring
+          modrval$results <- compiled$results
+          modrval$question_grades <- compiled$question_grades
+          modrval$student_grades <- compiled$student_grades
+          gradR::write_compiled(compiled, modrval$test_path)
+          shinyalert::shinyalert("Saved!", "Grading has been updated.", "success")
         }
       })
       

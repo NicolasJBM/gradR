@@ -261,7 +261,7 @@ compile_grading <- function(
   # update compiled answers to integrate new students, attempts, or propositions
   raw_empty <- tibble::tibble(
     student = base::character(0),
-    attempt = base::numeric(0),
+    attempt = base::character(0),
     version = base::character(0),
     letter = base::character(0),
     questype = base::character(0),
