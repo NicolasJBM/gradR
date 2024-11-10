@@ -156,7 +156,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
       
       shiny::observe({
         
-        if (base::length(course_paths) == 1){
+        if (base::is.character(course_paths)){
           test_name <- "freetest"
           test_path <- base::paste0(course_paths,"/")
           parameters_path <- "test_parameters.RData"
@@ -425,7 +425,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
         test_languages <- modrval$test_parameters$test_languages[1] |>
           stringr::str_split(pattern = ";", simplify = TRUE)
         
-        if (base::length(course_paths) == 1){
+        if (base::is.character(course_paths)){
           langfile <- base::paste0(course_paths,"/languages.csv")
           exam_languages <- utils::read.csv(langfile)
         } else {
@@ -775,7 +775,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
       shiny::observeEvent(input$save_checks, {
         shiny::req(!base::is.null(selected_version()))
         
-        if (base::length(course_paths) == 1) {
+        if (base::is.character(course_paths)) {
           versiontype <- "Essay"
         } else {
           versiontype <- modrval$test_parameters |>
