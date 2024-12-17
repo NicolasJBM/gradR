@@ -636,13 +636,11 @@ grading_server <- function(id, test, tree, course_data, course_paths){
           )), by = c("version","letter"))
         
         if (typequest %in% c("Essay","Problem")){
-          print("YES")
           graded_items <- graded_items |>
             dplyr::arrange(proposition) |>
             dplyr::select(letter, proposition, scale, checked, correct) |>
             base::unique()
         } else {
-          print("NO")
           graded_items <- graded_items |>
             dplyr::arrange(letter) |>
             dplyr::select(letter, proposition, scale, checked, correct) |>
