@@ -813,7 +813,7 @@ grading_server <- function(id, test, tree, course_data, course_paths){
                 checked_chr == "0" ~ 0,
                 checked_chr == "FALSE" ~ 0,
                 checked_chr == "-0.5" ~ -0.5,
-                TRUE ~ 0
+                TRUE ~ base::suppressWarnings(base::as.numeric(checked_chr))
               )
             ) |>
             dplyr::select(-checked_chr) |>

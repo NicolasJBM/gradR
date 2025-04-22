@@ -44,7 +44,7 @@ make_scale <- function(
       label = proposition,
       min = 0,
       max = 1,
-      step = 0.01,
+      step = 0.05,
       value = checked,
       width = "100%"
     )
