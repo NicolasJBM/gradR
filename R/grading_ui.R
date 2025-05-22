@@ -59,26 +59,24 @@ grading_ui <- function(id){
             title = "Check answers provided by each student to each question."
           )
         ),
+        shiny::uiOutput(ns("check_answers")),
+        shiny::fluidRow(
+          shiny::column(6,shiny::uiOutput(ns("displaywordcount"))),
+          shiny::column(6,shiny::uiOutput(ns("displayearned")))
+          
+        ),
         shiny::fluidRow(
           shiny::column(
             3,
             shiny::uiOutput(ns("viewversion"))
           ),
           shiny::column(
-            4,
-            shiny::uiOutput(ns("displaywordcount")),
+            6,
             shiny::uiOutput(ns("display_selected_answer")),
-            shiny::tags$hr(),
-            shiny::uiOutput(ns("keywords_selection"))
           ),
           shiny::column(
-            5,
-            shiny::uiOutput(ns("displayearned")),
-            shiny::uiOutput(ns("check_answers")),
-            shiny::actionButton(
-              ns("save_checks"), "Save", icon = shiny::icon("save"),
-              style = "background-color:#006600;color:#FFF;width:100%;"
-            )
+            3,
+            shiny::uiOutput(ns("keywords_selection"))
           )
         )
       ),
@@ -103,8 +101,7 @@ grading_ui <- function(id){
             "Diagnostics",
             title = "Check grading consistency across questions and students."
           )
-        ),
-        shiny::uiOutput(ns("diagnostics"))
+        )
       ),
       shiny::tabPanel(
         title = shiny::tagList(

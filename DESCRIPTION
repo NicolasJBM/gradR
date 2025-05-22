@@ -31,9 +31,7 @@ Imports:
   shinyalert,
   shinybusy,
   shinydashboard,
-  teachR,
   DT
 Remotes:
-  NicolasJBM/teachR,
   NicolasJBM/editR,
   NicolasJBM/chartR
