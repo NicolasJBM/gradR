@@ -4,14 +4,10 @@
 \alias{grading_server}
 \title{Grade tests.}
 \usage{
-grading_server(id, test, intake, course_data, course_paths)
+grading_server(id, course_data, course_paths)
 }
 \arguments{
 \item{id}{Character. ID of the module to connect the user interface to the appropriate server side.}
-
-\item{test}{Reactive. Selected test.}
-
-\item{intake}{Reactive. Function containing the properties of the intake.}
 
 \item{course_data}{Reactive. Function containing all the course data loaded with the course.}
 

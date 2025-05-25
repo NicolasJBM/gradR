@@ -3,8 +3,6 @@
 #' @author Nicolas Mangin
 #' @description Module allowing the user to grade, check, and calibrate tests.
 #' @param id Character. ID of the module to connect the user interface to the appropriate server side.
-#' @param test Reactive. Selected test.
-#' @param intake Reactive. Function containing the properties of the intake.
 #' @param course_data Reactive. Function containing all the course data loaded with the course.
 #' @param course_paths Reactive. Function containing a list of paths to the different folders and databases on local disk.
 #' @return Save the test results in the relevant test sub-folder.
@@ -96,7 +94,7 @@
 
 
 
-grading_server <- function(id, test, intake, course_data, course_paths){
+grading_server <- function(id, course_data, course_paths){
   ns <- shiny::NS(id)
   shiny::moduleServer(
     id,
@@ -153,269 +151,17 @@ grading_server <- function(id, test, intake, course_data, course_paths){
       modrval <- shiny::reactiveValues()
       
       shiny::observe({
+        modrval$tests <- course_data()$tests
+        modrval$solutions <- course_data()$solutions
+        modrval$answers <- course_data()$answers
+        modrval$students <- course_data()$students
         
-        if (base::is.character(course_paths)){
-          test_name <- "freetest"
-          test_path <- base::paste0(course_paths,"/")
-          parameters_path <- "test_parameters.RData"
-          
-          # Check that at least some solutions have been created
-          solutions_files <- base::paste0(test_path, "4_solutions") |>
-            base::list.files(full.names = FALSE)
-          shiny::req(base::length(solutions_files) > 0)
-          
-          # Check that answers have been imported
-          answers_files <- base::paste0(test_path, "7_answers") |>
-            base::list.files(full.names = FALSE, recursive = TRUE)
-          shiny::req(base::length(answers_files) > 0)
-          
-          if (base::file.exists(parameters_path)){
-            shiny::req(base::file.exists(parameters_path))
-            base::load(parameters_path)
-          } else {
-            
-            versions <- solutions_files |>
-              stringr::str_remove_all(".csv$")
-            
-            languages <- stringr::str_extract(versions, "^..") |>
-              base::paste(collapse = ";")
-            
-            versions <- versions[stringr::str_detect(versions, "US")]
-            
-            test_parameters <- tibble::tibble(
-              test = "freetest",
-              test_format = "quiz",
-              test_unit = "student",
-              test_assessment = "formative",
-              test_documentation = "open-book",
-              test_languages = languages,
-              test_date = base::as.character(base::Sys.Date()),
-              test_duration = 0,
-              test_points = 10,
-              show_version = FALSE,
-              show_points = FALSE,
-              question = versions,
-              section = "A",
-              bloc = "A",
-              altnbr = 0,
-              points = 10,
-              partial_credits = TRUE,
-              penalty = FALSE,
-              version = versions,
-              seed = 123456789
-            )
-            base::save(test_parameters, file = parameters_path)
-          }
-        } else {
-          test_name <- test()$test[1]
-          test_path <- base::paste0(course_paths()$subfolders$tests, "/", test_name,"/")
-          parameters_path <- base::paste0(test_path, "/test_parameters.RData")
-          shiny::req(base::file.exists(parameters_path))
-          base::load(parameters_path)
-          shiny::req(base::nrow(stats::na.omit(test_parameters)) > 0)
-        }
-        
-        
-        shinybusy::show_modal_spinner(
-          spin = "orbit",
-          text = "Test loading..."
-        )
-        
-        # Solutions
-        solutions <- base::list.files(base::paste0(
-          test_path, "4_solutions"
-        ), full.names = TRUE)
-        if (base::length(solutions) > 0){
-          solutions <- tibble::tibble(
-            path = solutions
-          ) |>
-            dplyr::mutate(solutions = purrr::map(path, function(x){
-              readr::read_csv(x, col_types = "ccncccccnccncccnn")
-            })) |>
-            tidyr::unnest(solutions)
-        } else solutions <- NA
-        
-        # Students
-        students <- base::paste0(
-          test_path, "6_students/student_list.csv"
-        )
-        if (base::file.exists(students)){
-          students <- readr::read_csv(students, col_types = "ccccc") |>
-            dplyr::mutate(enrolled = 1)
-        } else {
-          students <- tibble::tibble(
-            student = base::character(0),
-            team = base::character(0),
-            firstname = base::character(0),
-            lastname = base::character(0),
-            email = base::character(0),
-            enrolled = base::numeric(0)
-          )
-        }
-        
-        # Raw answers
-        closed_answers <- base::paste0(
-          test_path, "7_answers/closed.csv"
-        )
-        if (base::file.exists(closed_answers)){
-          closed_answers <- readr::read_csv(closed_answers, col_types = "cccc")
-        } else {
-          closed_answers <- tibble::tibble(
-            student = base::character(0),
-            attempt = base::character(0),
-            version = base::character(0),
-            letter = base::character(0)
-          )
-        }
-        
-        numeric_answers <- base::paste0(
-          test_path, "7_answers/numeric.csv"
-        )
-        if (base::file.exists(numeric_answers)){
-          numeric_answers <- readr::read_csv(numeric_answers, col_types = "cccc")
-        } else {
-          numeric_answers <- tibble::tibble(
-            student = base::character(0),
-            attempt = base::character(0),
-            version = base::character(0),
-            proposition = base::character(0)
-          )
-        }
-        
-        open_answers <- base::paste0(
-          test_path, "7_answers/open.csv"
-        )
-        if (base::file.exists(open_answers)){
-          open_answers <- readr::read_csv(open_answers, col_types = "ccccn")
-        } else {
-          open_answers <- tibble::tibble(
-            student = base::character(0),
-            attempt = base::character(0),
-            version = base::character(0),
-            letter = base::character(0),
-            checked = base::numeric(0)
-          )
-        }
-        
-        open_answers_txt <- base::list.files(base::paste0(
-          test_path, "7_answers/open"
-        ), full.names = FALSE)
-        if (base::length(open_answers_txt) > 0){
-          open_answers_txt <- tibble::tibble(
-            file_name = open_answers_txt
-          ) |>
-            dplyr::mutate(file_path = base::paste0(
-              test_path, "7_answers/open/", file_name
-            )) |>
-            dplyr::mutate(
-              encoding = purrr::map_chr(file_path, function(x){
-                readr::guess_encoding(x) |>
-                  dplyr::filter(confidence == base::max(confidence)) |>
-                  dplyr::slice_head(n = 1) |>
-                  dplyr::select(encoding) |>
-                  base::as.character()
-              }),
-              text = purrr::map2(
-                file_path,
-                encoding,
-                function(x,y){
-                  readr::read_lines(file = x, locale = readr::locale(encoding = y))
-                }
-              )
-            ) |>
-            tidyr::separate(file_name, into = c("record","version"), sep = "_") |>
-            tidyr::separate(record, into = c("student","attempt"), sep = "-") |>
-            dplyr::mutate(
-              attempt = base::as.character(attempt),
-              version = stringr::str_remove_all(version, ".txt")
-            ) |>
-            dplyr::select(student, attempt, version, text)
-        } else {
-          open_answers_txt <- tibble::tibble(
-            student = base::character(0),
-            attempt = base::character(0),
-            version = base::character(0),
-            text = base::numeric(0)
-          )
-        }
-        
-        # Compiled answers
-        answers <- base::paste0(
-          test_path, "8_results/answers.csv"
-        )
-        if (base::file.exists(answers)){
-          answers <- readr::read_csv(answers, col_types = "cccccn")
-        } else {
-          answers <- tibble::tibble(
-            student = base::character(0),
-            attempt = base::character(0),
-            question = base::character(0),
-            version = base::character(0),
-            letter = base::character(0),
-            checked = base::numeric(0)
-          )
-        }
-        
-        shiny::req(
-          (base::nrow(stats::na.omit(closed_answers)) +
-            base::nrow(stats::na.omit(numeric_answers)) +
-            base::nrow(stats::na.omit(open_answers_txt))) > 0
-        )
-        
-        compiled <- gradR::compile_grading(
-          test_parameters,
-          solutions,
-          students,
-          closed_answers,
-          numeric_answers,
-          open_answers,
-          open_answers_txt,
-          answers
-        )
-        
-        modrval$test_name <- test_name
-        modrval$test_path <- test_path
-        modrval$test_parameters <- compiled$test_parameters
-        modrval$solutions <- compiled$solutions
-        modrval$students <- compiled$students
-        modrval$closed_answers <- compiled$closed_answers
-        modrval$numeric_answers <- compiled$numeric_answers
-        modrval$open_answers <- compiled$open_answers
-        modrval$open_answers_txt <- compiled$open_answers_txt
-        modrval$answers <- compiled$answers
-        modrval$scoring <- compiled$scoring
-        modrval$results <- compiled$results
-        modrval$question_grades <- compiled$question_grades
-        modrval$student_grades <- compiled$student_grades
-        
-        modrval$selection_basis <- compiled$answers |>
-          dplyr::left_join(dplyr::select(compiled$solutions, version, type), by = "version") |>
-          dplyr::filter(type %in% c("Essay","Problem") | checked == 1) |>
-          dplyr::select(student, attempt, question, version) |>
-          base::unique()
-        
-        gradR::write_compiled(compiled, test_path)
-        
-        shinyWidgets::updateSwitchInput(
-          session,
-          "studentfocus",
-          value = FALSE
-        )
-        
-        shinybusy::remove_modal_spinner()
-        
-        shinyalert::shinyalert(
-          title = "Test loaded!",
-          text = "All test data are now loaded.",
-          type = "success"
-        )
       })
-      
       
       ##########################################################################
       # Selection
       
-      output$slctlanguage <- shiny::renderUI({
+      output$slctset <- shiny::renderUI({
         shiny::req(!base::is.null(modrval$test_parameters))
         shiny::req(base::nrow(modrval$test_parameters) > 0)
         

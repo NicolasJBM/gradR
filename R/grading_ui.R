@@ -26,6 +26,10 @@ grading_ui <- function(id){
   base::list(
     shiny::fluidRow(
       shiny::column(
+        8,
+        shiny::uiOutput(ns("slctset"))
+      ),
+      shiny::column(
         4,
         shinyWidgets::radioGroupButtons(
           inputId = ns("focus"), label = NULL, 
@@ -37,10 +41,6 @@ grading_ui <- function(id){
           size = "sm", direction = "horizontal",
           checkIcon = base::list(yes = shiny::icon("check"))
         )
-      ),
-      shiny::column(
-        8,
-        shiny::uiOutput(ns("slctlanguage"))
       )
     ),
     shiny::fluidRow(

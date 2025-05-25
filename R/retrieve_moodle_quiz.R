@@ -1,5 +1,5 @@
 
-retrieve_moodle_quiz <- function(sesskey = NA, quizid = NA){
+retrieve_moodle_quiz <- function(sesskey = NA, format = "html", quizid = NA){
   
   base::stopifnot(
     !base::is.na(sesskey),
@@ -12,7 +12,9 @@ retrieve_moodle_quiz <- function(sesskey = NA, quizid = NA){
   url <- base::paste0(
     "https://lms-bachelor.ehl.edu/mod/quiz/report.php?sesskey=",
     sesskey,
-    "aH&download=csv&id=",
+    "aH&download=",
+    format,
+    "&id=",
     quizid,
     "&mode=responses&attempts=enrolled_with&onlygraded=&qtext=&resp=1&right="
   )
