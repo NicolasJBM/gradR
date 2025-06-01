@@ -24,29 +24,33 @@
 grading_ui <- function(id){
   ns <- shiny::NS(id)
   base::list(
+    shiny::uiOutput(ns("slctlanguage")),
     shiny::fluidRow(
       shiny::column(
-        8,
-        shiny::uiOutput(ns("slctset"))
+        4,
+        editR::selection_ui(ns("select_test"), "Test:")
       ),
       shiny::column(
         4,
-        shinyWidgets::radioGroupButtons(
-          inputId = ns("focus"), label = NULL, 
-          choices = c(
-            `<i class='fa fa-question-circle'> Focus on questions </i>` = "question",
-            `<i class='fa fa-user'> Focus on students </i>` = "student"
-          ), selected = base::character(0),
-          status = "primary", justified = TRUE,
-          size = "sm", direction = "horizontal",
-          checkIcon = base::list(yes = shiny::icon("check"))
-        )
+        editR::selection_ui(ns("select_question"), "Question:")
+      ),
+      shiny::column(
+        4,
+        editR::selection_ui(ns("select_version"), "Version:")
       )
     ),
     shiny::fluidRow(
       shiny::column(
-        12,
-        shiny::uiOutput(ns("filters"))
+        4,
+        editR::selection_ui(ns("select_intake"), "Intake:")
+      ),
+      shiny::column(
+        4,
+        editR::selection_ui(ns("select_student"), "Student:")
+      ),
+      shiny::column(
+        4,
+        editR::selection_ui(ns("select_attempt"), "Attempt:")
       )
     ),
     shinydashboard::tabBox(
@@ -55,27 +59,38 @@ grading_ui <- function(id){
         title = shiny::tagList(
           shiny::icon("tasks"),
           shiny::span(
-            "Answer",
+            "Answers",
             title = "Check answers provided by each student to each question."
           )
         ),
         shiny::uiOutput(ns("check_answers")),
-        shiny::fluidRow(
-          shiny::column(6,shiny::uiOutput(ns("displaywordcount"))),
-          shiny::column(6,shiny::uiOutput(ns("displayearned")))
-          
-        ),
+        shiny::tags$hr(),
         shiny::fluidRow(
           shiny::column(
-            3,
+            4,
             shiny::uiOutput(ns("viewversion"))
           ),
           shiny::column(
-            6,
+            4,
             shiny::uiOutput(ns("display_selected_answer")),
+            shiny::actionButton(
+              ns("open_selected_answer"), "Open answer file",
+              icon = shiny::icon("file-import"),
+              style = "background-color:#000066;color:#FFF;width:100%;"
+            ),
+            shiny::uiOutput(ns("generalcomment"))
           ),
           shiny::column(
-            3,
+            4,
+            shiny::uiOutput(ns("displayscore")),
+            shiny::uiOutput(ns("displaywordcount")),
+            shinyWidgets::materialSwitch(
+              inputId = ns("dispallkw"),
+              label = "Highlight all keywords", 
+              status = "primary",
+              value = FALSE,
+              right = TRUE
+            ),
             shiny::uiOutput(ns("keywords_selection"))
           )
         )
@@ -83,15 +98,36 @@ grading_ui <- function(id){
       shiny::tabPanel(
         title = shiny::tagList(
           shiny::icon("comment"), shiny::span(
-            "Solution",
-            title = "Complement and correct the criteria, solutions, and feedback associated with each question."
+            "Solutions",
+            title = "Edit and correct the criteria, solutions, and feedback associated with each question."
           )
         ),
         shiny::fluidRow(
           shiny::column(
             12,
-            shiny::uiOutput(ns("edit_question_parameters")),
+            shiny::actionButton(
+              ns("save_sol"), "Save", icon = shiny::icon("save"),
+              style = "background-color:#006600;color:#FFF;width:100%;"
+            ),
             rhandsontable::rHandsontableOutput(ns("edit_solutions"))
+          )
+        )
+      ),
+      shiny::tabPanel(
+        title = shiny::tagList(
+          shiny::icon("sliders"), shiny::span(
+            "Parameters",
+            title = "Change test parameters, like the distribution of points of penalties."
+          )
+        ),
+        shiny::fluidRow(
+          shiny::column(
+            12,
+            shiny::actionButton(
+              ns("save_param"), "Save", icon = shiny::icon("save"),
+              style = "background-color:#006600;color:#FFF;width:100%;"
+            ),
+            rhandsontable::rHandsontableOutput(ns("edit_parameters"))
           )
         )
       ),
@@ -113,7 +149,12 @@ grading_ui <- function(id){
         shiny::fluidRow(
           shiny::column(
             2,
-            shiny::numericInput(ns("defpass"), "Pass:", value = 0),
+            shiny::selectInput(
+              ns("defmetric"), "Metric:",
+              choices = c("earned","score","grade"),
+              selected = "earned", width = "100%"
+            ),
+            shiny::numericInput(ns("defpass"), "Pass:", value = 0, width = "100%")
           ),
           shiny::column(
             10,
