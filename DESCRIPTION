@@ -23,15 +23,19 @@ Imports:
   chartR,
   editR,
   knitr,
-  psych,
   readr,
   rhandsontable,
   shiny,
   shinyWidgets,
   shinyalert,
-  shinybusy,
   shinydashboard,
-  DT
+  classR,
+  rstudioapi,
+  shinyAce,
+  shinydashboardPlus,
+  shinybusy,
+  blastula
 Remotes:
   NicolasJBM/editR,
-  NicolasJBM/chartR
+  NicolasJBM/chartR,
+  NicolasJBM/classR

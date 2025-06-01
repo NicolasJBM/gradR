@@ -78,7 +78,12 @@ grading_ui <- function(id){
               icon = shiny::icon("file-import"),
               style = "background-color:#000066;color:#FFF;width:100%;"
             ),
-            shiny::uiOutput(ns("generalcomment"))
+            shiny::uiOutput(ns("customcomment")),
+            shiny::actionButton(
+              ns("save_comment"), "Save the comment",
+              icon = shiny::icon("save"),
+              style = "background-color:#006600;color:#FFF;width:100%;"
+            )
           ),
           shiny::column(
             4,
@@ -169,6 +174,97 @@ grading_ui <- function(id){
           shiny::column(
             10,
             shiny::plotOutput(ns("testdistribution"))
+          )
+        )
+      ),
+      
+      
+      
+      
+      shiny::tabPanel(
+        title = shiny::tagList(
+          shiny::icon("envelope-open-text"), shiny::span(
+            "Feedback",
+            title = "Write a template for individual reporting and send e-mails."
+          )
+        ),
+        base::list(
+          shiny::fluidRow(
+            shiny::column(
+              4,
+              shinydashboardPlus::box(
+                width = 12, title = "Edition", solidHeader = TRUE,
+                status = "navy", collapsible = FALSE, collapsed = FALSE,
+                shiny::fluidRow(
+                  shiny::column(
+                    4,
+                    shiny::actionButton(
+                      ns("feedbackinrstudio"), "RStudio",
+                      icon = shiny::icon("r-project"),
+                      style = "background-color:#003366;color:#FFF;
+                width:100%;margin-bottom:10px;"
+                    )
+                  ),
+                  shiny::column(
+                    4,
+                    shiny::actionButton(
+                      ns("refreshfeedback"), "Refresh",
+                      icon = shiny::icon("rotate"),
+                      style = "background-color:#006699;color:#FFF;
+                width:100%;margin-bottom:10px;"
+                    )
+                  ),
+                  shiny::column(
+                    4,
+                    shiny::actionButton(
+                      ns("savefeedback"), "Save",
+                      icon = shiny::icon("floppy-disk"),
+                      style = "background-color:#006633;color:#FFF;
+                width:100%;margin-bottom:10px;"
+                    )
+                  )
+                ),
+                shiny::fluidRow(
+                  shiny::column(
+                    12,
+                    shiny::uiOutput(ns("edit_feedback"))
+                  )
+                )
+              )
+            ),
+            shiny::column(
+              4,
+              shiny::uiOutput(ns("preview_feedback"))
+            ),
+            shiny::column(
+              4,
+              shinydashboardPlus::box(
+                width = 12, title = "Mailing", solidHeader = TRUE,
+                status = "maroon", collapsible = FALSE, collapsed = FALSE,
+                shiny::fluidRow(
+                  shiny::column(
+                    12,
+                    shiny::uiOutput(ns("slctcredentials")),
+                    shiny::tags$hr(),
+                    shiny::textAreaInput(
+                      ns("mailsubject"), "Subject of the message:",
+                      "Feedback on your test.",
+                      width = "100%"
+                    ),
+                    shiny::textInput(ns("emailtest"), "Test e-mail", width = "100%"),
+                    shiny::actionButton(
+                      ns("sendtestemail"), "Send test", icon = shiny::icon("envelope"),
+                      style = "background-color:#FF4500;color:#FFF;width:100%;margin-top:25px;"
+                    ),
+                    shiny::tags$hr(),
+                    shiny::actionButton(
+                      ns("sendfeedback"), "Send to all", icon = shiny::icon("paper-plane"),
+                      style = "background-color:#330066;color:#FFF;width:100%;margin-bottom:10px;"
+                    ),
+                  )
+                )
+              )
+            )
           )
         )
       )

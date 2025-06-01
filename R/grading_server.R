@@ -6,89 +6,70 @@
 #' @param course_data Reactive. Function containing all the course data loaded with the course.
 #' @param course_paths Reactive. Function containing a list of paths to the different folders and databases on local disk.
 #' @return Save the test results in the relevant test sub-folder.
-#' @importFrom chartR display_curve
-#' @importFrom chartR draw_composition_scatterplot
-#' @importFrom chartR draw_correlogram
-#' @importFrom chartR draw_density_plot
 #' @importFrom chartR draw_grade_distribution
-#' @importFrom chartR draw_score_differences
+#' @importFrom classR trees_structure_textbook
 #' @importFrom dplyr anti_join
 #' @importFrom dplyr arrange
 #' @importFrom dplyr bind_rows
 #' @importFrom dplyr case_when
 #' @importFrom dplyr filter
+#' @importFrom dplyr full_join
 #' @importFrom dplyr group_by
 #' @importFrom dplyr left_join
 #' @importFrom dplyr mutate
-#' @importFrom dplyr mutate_all
-#' @importFrom dplyr mutate_if
 #' @importFrom dplyr rename
+#' @importFrom dplyr right_join
 #' @importFrom dplyr select
-#' @importFrom dplyr starts_with
 #' @importFrom dplyr summarise
-#' @importFrom editR make_infobox
+#' @importFrom dplyr ungroup
 #' @importFrom editR selection_server
-#' @importFrom editR selection_ui
+#' @importFrom gradR make_scale
 #' @importFrom knitr knit2html
-#' @importFrom psych fa
 #' @importFrom purrr map
-#' @importFrom readr locale
+#' @importFrom purrr map2_chr
 #' @importFrom readr read_csv
-#' @importFrom readr guess_encoding
+#' @importFrom readr read_lines
+#' @importFrom readr write_csv
 #' @importFrom rhandsontable hot_col
 #' @importFrom rhandsontable hot_cols
 #' @importFrom rhandsontable hot_context_menu
 #' @importFrom rhandsontable hot_to_r
 #' @importFrom rhandsontable renderRHandsontable
 #' @importFrom rhandsontable rhandsontable
+#' @importFrom rstudioapi navigateToFile
 #' @importFrom shiny HTML
 #' @importFrom shiny NS
 #' @importFrom shiny actionButton
-#' @importFrom shiny brushedPoints
 #' @importFrom shiny checkboxGroupInput
 #' @importFrom shiny column
-#' @importFrom DT dataTableOutput
 #' @importFrom shiny fluidRow
 #' @importFrom shiny icon
 #' @importFrom shiny isolate
 #' @importFrom shiny moduleServer
-#' @importFrom shiny numericInput
 #' @importFrom shiny observe
 #' @importFrom shiny observeEvent
-#' @importFrom shiny plotOutput
 #' @importFrom shiny reactive
 #' @importFrom shiny reactiveValues
-#' @importFrom DT renderDataTable
 #' @importFrom shiny renderPlot
 #' @importFrom shiny renderUI
 #' @importFrom shiny req
-#' @importFrom shiny selectInput
-#' @importFrom shiny sliderInput
 #' @importFrom shiny tagList
-#' @importFrom shiny uiOutput
+#' @importFrom shiny textAreaInput
 #' @importFrom shiny updateNumericInput
 #' @importFrom shiny withMathJax
+#' @importFrom shinyAce aceEditor
 #' @importFrom shinyWidgets radioGroupButtons
-#' @importFrom shinyWidgets switchInput
-#' @importFrom shinyWidgets updateSwitchInput
 #' @importFrom shinyalert shinyalert
-#' @importFrom shinybusy remove_modal_spinner
-#' @importFrom shinybusy show_modal_spinner
 #' @importFrom shinydashboard valueBox
 #' @importFrom stringr str_count
 #' @importFrom stringr str_detect
+#' @importFrom stringr str_extract_all
 #' @importFrom stringr str_remove
-#' @importFrom stringr str_remove_all
 #' @importFrom stringr str_replace
 #' @importFrom stringr str_replace_all
 #' @importFrom stringr str_split
-#' @importFrom tibble column_to_rownames
-#' @importFrom tibble rownames_to_column
 #' @importFrom tibble tibble
-#' @importFrom tidyr pivot_wider
 #' @importFrom tidyr replace_na
-#' @importFrom tidyr separate
-#' @importFrom tidyr unite
 #' @importFrom tidyr unnest
 #' @export
 
@@ -168,6 +149,7 @@ grading_server <- function(id, course_data, course_paths){
       lastname <- NULL
       team <- NULL
       earned <- NULL
+      outl <- NULL
       
       
       
@@ -529,14 +511,69 @@ grading_server <- function(id, course_data, course_paths){
       
       
       
-      output$generalcomment <- shiny::renderUI({
+      shiny::observe({
+        shiny::req(!base::is.null(selected_answers()))
+        modrval$feedbackfolder <- base::paste0(
+          course_paths()$subfolders$tests, "/",
+          selected_answers()$test[1], "/7_feedback"
+        )
+        shiny::req(base::dir.exists(modrval$feedbackfolder))
+        commentpath <- base::paste0(modrval$feedbackfolder, "/comments.csv")
+        if (base::file.exists(commentpath)) {
+          modrval$comments <- readr::read_csv(file = commentpath, col_types = "cccccTc")
+        } else {
+          modrval$comments <- selected_answers() |>
+            dplyr::select(test, question, version, intake, studentid, end) |>
+            dplyr::mutate(comment = "")
+          readr::write_csv(modrval$comments, file = commentpath)
+        }
+      })
+      
+      
+      
+      output$customcomment <- shiny::renderUI({
+        shiny::req(!base::is.null(selected_answers()))
+        shiny::req(base::nrow(selected_answers()) == 1)
+        shiny::req(!base::is.null(modrval$comments))
+        
+        slctcomment <- modrval$comments |>
+          dplyr::filter(
+            test == selected_answers()$test[1],
+            question == selected_answers()$question[1],
+            version == selected_answers()$version[1],
+            intake == selected_answers()$intake[1],
+            studentid == selected_answers()$studentid[1],
+            end == selected_answers()$end[1]
+          )
+        
         shiny::textAreaInput(
           inputId = ns("writencomment"),
           label = "General comments:",
-          value = "",
+          value = slctcomment$comment[1],
           width = "100%",
           height = "300px"
         )
+      })
+      
+      
+      
+      shiny::observeEvent(input$save_comment, {
+        shiny::req(!base::is.null(selected_answers()))
+        shiny::req(!base::is.null(input$writencomment))
+        
+        newcomment <- selected_answers() |>
+          dplyr::select(test, question, version, intake, studentid, end) |>
+          dplyr::mutate(comment = input$writencomment)
+        
+        oldcomments <- modrval$comments |>
+          dplyr::anti_join(newcomment, by = c("test", "question", "version", "intake", "studentid", "end"))
+        
+        comments <- dplyr::bind_rows(oldcomments, newcomment)
+        commentpath <- base::paste0(modrval$feedbackfolder, "/comments.csv")
+        readr::write_csv(comments, file = commentpath)
+        modrval$comments <- comments
+        
+        shinyalert::shinyalert("Saved!", "Your comment has been updated.", "success")
       })
       
       
@@ -728,8 +765,10 @@ grading_server <- function(id, course_data, course_paths){
         shiny::req(!base::is.null(scores()))
         scores() |>
           dplyr::select(
-            test, language, intake,
-            studentid, team, firstname, lastname, email, end,
+            test, language,
+            intake, studentid, team,
+            firstname, lastname,
+            email, end,
             test_points, score
           ) |>
           dplyr::group_by(
@@ -1085,6 +1124,253 @@ grading_server <- function(id, course_data, course_paths){
         shiny::req(!base::is.null(input$defhistbreaks))
         chartR::draw_grade_distribution(testmetric(), input$defpass, input$defhistbreaks)
       })
+      
+      
+      
+      ##########################################################################
+      # Feedback
+      
+      # Editing
+      feedback_template_path <- shiny::reactive({
+        shiny::req(!base::is.null(selected_answers()))
+        shiny::req(base::nrow(selected_answers()) == 1)
+        shiny::req(!base::is.null(modrval$feedbackfolder))
+        base::paste0(
+          modrval$feedbackfolder, "/feedback_",
+          selected_answers()$language[1],".Rmd"
+        )
+      })
+      
+      output$edit_feedback <- shiny::renderUI({
+        shiny::req(!base::is.null(feedback_template_path()))
+        shiny::req(base::file.exists(feedback_template_path()))
+        lines <- readr::read_lines(feedback_template_path())
+        input$refreshfeedback
+        shinyAce::aceEditor(
+          outputId = ns("editedfeedback"), value = lines,
+          mode = "markdown", wordWrap = TRUE, debounce = 10,
+          autoComplete = "live", height = "500"
+        )
+      })
+      
+      shiny::observeEvent(input$feedbackinrstudio, {
+        shiny::req(!base::is.null(feedback_template_path()))
+        shiny::req(base::file.exists(feedback_template_path()))
+        rstudioapi::navigateToFile(feedback_template_path())
+      })
+      
+      shiny::observeEvent(input$savefeedback, {
+        shiny::req(!base::is.null(input$editedfeedback))
+        base::writeLines(
+          input$editedfeedback, feedback_template_path(), useBytes = TRUE
+        )
+        shinyalert::shinyalert(
+          "Feedback saved!",
+          "Refresh to preview with the changes you just made.",
+          type = "success", closeOnEsc = FALSE, closeOnClickOutside = TRUE,
+          inputId = "refreshpreview"
+        )
+      })
+      
+      
+      
+      # Previewing
+      
+      feedback_data <- shiny::reactive({
+        shiny::req(!base::is.null(course_data()))
+        shiny::req(!base::is.null(selected_answers()))
+        shiny::req(base::nrow(selected_answers()) == 1)
+        shiny::req(!base::is.null(results()))
+        shiny::req(!base::is.null(scores()))
+        shiny::req(!base::is.null(grades()))
+        shiny::req(!base::is.null(modrval$comments))
+        
+        selected_answers <- selected_answers()
+        results <- results()
+        scores <- scores()
+        grades <- grades()
+        documents <- course_data()$databases$documents
+        intake <- dplyr::filter(course_data()$intakes, intake == selected_answers()$intake[1])
+        tbltree <- course_data()$tbltrees[[base::paste0(intake$tree[[1]], ".RData")]]
+        textbook <- classR::trees_structure_textbook(tbltree, intake$tree[1], intake$website[1])
+        comments <- modrval$comments
+        
+        base::list(
+          selected_answers = selected_answers,
+          results = results,
+          scores = scores,
+          grades = grades,
+          documents = documents,
+          intake = intake,
+          tbltree = tbltree,
+          textbook = textbook,
+          comments = comments
+        )
+      })
+      
+      output$preview_feedback <- shiny::renderUI({
+        shiny::req(!base::is.null(feedback_data()))
+        shiny::req(!base::is.null(selected_answers()))
+        shiny::req(base::nrow(selected_answers()) == 1)
+        input$refreshfeedback
+        feedback_data <- feedback_data()
+        lines <- readr::read_lines(feedback_template_path())
+        base::suppressWarnings(
+          shiny::withMathJax(shiny::HTML(knitr::knit2html(
+            text = lines, quiet = TRUE, template = FALSE
+          )))
+        )
+      })
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      # Mailing
+      
+      credentials <- shiny::reactive({
+        tibble::tibble(
+          profile = base::list.files(course_paths()$subfolders$credentials, full.names = FALSE),
+          file = base::list.files(course_paths()$subfolders$credentials, full.names = TRUE)
+        )
+      })
+      
+      output$slctcredentials <- shiny::renderUI({
+        shiny::req(!base::is.null(credentials()))
+        shiny::req(base::nrow(credentials()) > 0)
+        credchoices <- base::as.vector(credentials()$file)
+        base::names(credchoices) <- credentials()$profile
+        shinyWidgets::radioGroupButtons(
+          inputId = ns("slctcreds"),
+          label = "Select credentials to send e-mails:",
+          choices = credchoices,
+          justified = TRUE,
+          checkIcon = base::list(yes = shiny::icon("ok", lib = "glyphicon"))
+        )
+      })
+      
+      shiny::observeEvent(input$sendtestemail, {
+        shiny::req(!base::is.null(feedback_data()))
+        shiny::req(!base::is.null(input$slctcreds))
+        shiny::req(!base::is.null(input$emailtest))
+        
+        if (base::grepl("^[[:alnum:]._-]+@[[:alnum:].-]+$", input$emailtest)){
+          
+          feedback_data <- feedback_data()
+          
+          shinybusy::show_modal_spinner(
+            spin = "orbit",
+            text = "Please wait while the e-mail is sent..."
+          )
+          
+          message <- blastula::render_email(feedback_template_path())
+          
+          if (stringr::str_detect(input$slctcreds, "gmail")){
+            sender <- base::readLines(input$slctcreds) |>
+              stringr::str_extract(
+                "([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\\.[a-zA-Z0-9_-]+)"
+              )
+              blastula::smtp_send(
+                message,
+                from = sender,
+                to = input$emailtest,
+                subject = input$mailsubject,
+                credentials = blastula::creds_file(input$slctcreds)
+              )
+          } else {
+            base::load(input$slctcreds)
+            em <- outl$create_email(
+              message,
+              subject = input$mailsubject,
+              to = input$emailtest
+            )
+            em$send()
+          }
+          
+          shinybusy::remove_modal_spinner()
+          shinyalert::shinyalert(
+            "Test e-mail sent!", "Check the test recipient's inbox.",
+            type = "success", closeOnEsc = FALSE, closeOnClickOutside = TRUE
+          )
+          
+        } else {
+          shinyalert::shinyalert(
+            "Check test e-mail address!", "Please enter a valid e-mail address for the test.",
+            type = "error", closeOnEsc = FALSE, closeOnClickOutside = TRUE
+          )
+        }
+      })
+      
+      
+      
+      
+      
+      
+      
+      
+      shiny::observeEvent(input$sendfeedback, {
+        
+        feedback_data <- feedback_data()
+        
+        valid_recipients <- feedback_data$grades |>
+          dplyr::select(test, intake, studentid, team, email) |>
+          dplyr::filter(
+            test == feedback_data$selected_answers$test[1],
+            intake == feedback_data$selected_answers$intake
+          ) |>
+          base::unique() |>
+          stats::na.omit()
+        
+        valid_recipients[base::grepl("^[[:alnum:]._-]+@[[:alnum:].-]+$", valid_recipients$email),]
+        
+        shiny::req(base::nrow(valid_recipients) > 0)
+        
+        shinybusy::show_modal_spinner(
+          spin = "orbit",
+          text = "Please wait while the e-mail is sent..."
+        )
+        
+        
+        
+        msgnbr <- base::nrow(valid_recipients)
+        pgr <- 1/msgnbr
+        shinybusy::show_modal_progress_line(
+          value = pgr, text = "Reporting progress:"
+        )
+        
+        for (i in base::seq_len(msgnbr)){
+          pgr <- pgr + 1/msgnbr
+          studentid <- valid_recipients$student[i]
+          teamid <- valid_recipients$team[i]
+          emailaddress <- valid_recipients$email[i]
+          
+          
+          
+          
+          
+          shinybusy::update_modal_progress(pgr)
+        }
+        shinybusy::remove_modal_progress()
+        shinyalert::shinyalert(
+          "Task complete!", "A report has been sent to each recipient individually.",
+          type = "success", closeOnEsc = FALSE, closeOnClickOutside = TRUE
+        )
+        
+      })
+      
+      
+      
+      
+      
+      
+      
+      
       
     }
   )
