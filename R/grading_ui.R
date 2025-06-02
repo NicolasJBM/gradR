@@ -27,29 +27,27 @@ grading_ui <- function(id){
     shiny::uiOutput(ns("slctlanguage")),
     shiny::fluidRow(
       shiny::column(
-        4,
+        2,
         editR::selection_ui(ns("select_test"), "Test:")
       ),
       shiny::column(
-        4,
+        2,
         editR::selection_ui(ns("select_question"), "Question:")
       ),
       shiny::column(
-        4,
+        2,
         editR::selection_ui(ns("select_version"), "Version:")
-      )
-    ),
-    shiny::fluidRow(
+      ),
       shiny::column(
-        4,
+        2,
         editR::selection_ui(ns("select_intake"), "Intake:")
       ),
       shiny::column(
-        4,
+        2,
         editR::selection_ui(ns("select_student"), "Student:")
       ),
       shiny::column(
-        4,
+        2,
         editR::selection_ui(ns("select_attempt"), "Attempt:")
       )
     ),
