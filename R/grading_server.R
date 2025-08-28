@@ -1,4 +1,4 @@
-  #' @name grading_server
+#' @name grading_server
 #' @title Grade tests.
 #' @author Nicolas Mangin
 #' @description Module allowing the user to grade, check, and calibrate tests.
@@ -166,7 +166,7 @@ grading_server <- function(id, course_data, course_paths){
           modrval$answers <- course_data()$answers
           modrval$students <- course_data()$students
           modrval$languages <- course_data()$languages
-          modrval$preselected_answers <- modrval$answers
+          modrval$workinprogress <- course_data()$answers
         })
       })
       
@@ -193,87 +193,101 @@ grading_server <- function(id, course_data, course_paths){
         )
       })
       
-      
-      
-      tests <- shiny::reactive({
-        c("All", base::unique(modrval$preselected_answers$test))
-      })
-      selected_test <- editR::selection_server("select_test", tests)
-      
-      questions <- shiny::reactive({
-        c("All", base::unique(modrval$preselected_answers$question))
-      })
-      selected_question <- editR::selection_server("select_question", questions)
-      
-      versions <- shiny::reactive({
-        c("All", base::unique(modrval$preselected_answers$version))
-      })
-      selected_version <- editR::selection_server("select_version", versions)
-      
       intakes <- shiny::reactive({
-        c("All", base::unique(modrval$preselected_answers$intake))
+        c("All", base::unique(modrval$answers$intake))
       })
       selected_intake <- editR::selection_server("select_intake", intakes)
-      
-      students <- shiny::reactive({
-        c("All", base::unique(modrval$preselected_answers$studentid))
-      })
-      selected_student <- editR::selection_server("select_student", students)
-      
-      attempts <- shiny::reactive({
-        c("All", base::unique(base::as.character(modrval$preselected_answers$end)))
-      })
-      selected_attempt <- editR::selection_server("select_attempt", attempts)
-      
-      
-      
-      selected_answers <- shiny::reactive({
+      sample1 <- shiny::reactive({
         shiny::req(!base::is.null(input$slctexamlang))
-        shiny::req(!base::is.null(selected_test()))
-        shiny::req(!base::is.null(selected_question()))
-        shiny::req(!base::is.null(selected_version()))
         shiny::req(!base::is.null(selected_intake()))
-        shiny::req(!base::is.null(selected_student()))
-        shiny::req(!base::is.null(selected_attempt()))
-        
-        selected_answers <- modrval$preselected_answers
-        
-        selected_answers <- dplyr::filter(selected_answers, language == input$slctexamlang)
-        
-        if (selected_test() != "All" & selected_test() %in% selected_answers$test){
-          selected_answers <- dplyr::filter(selected_answers, test == selected_test())
-        }
-        
-        if (selected_question() != "All" & selected_question() %in% selected_answers$question){
-          selected_answers <- dplyr::filter(selected_answers, question == selected_question())
-        }
-        
-        if (selected_version() != "All" & selected_version() %in% selected_answers$version){
-          selected_answers <- dplyr::filter(selected_answers, version == selected_version())
-        }
-        
-        if (selected_intake() != "All" & selected_intake() %in% selected_answers$intake){
+        selected_answers <- dplyr::filter(modrval$answers, language == input$slctexamlang)
+        if (selected_intake() != "All"){
           selected_answers <- dplyr::filter(selected_answers, intake == selected_intake())
         }
-        
-        modrval$preselected_answers <- selected_answers
-        
-        if (selected_student() != "All" & selected_student() %in% selected_answers$studentid){
-          selected_answers <- dplyr::filter(selected_answers, studentid == selected_student())
-        }
-        
-        if (selected_attempt() != "All"){
-          slctattempt <- selected_answers |>
-            dplyr::filter(end == base::as.POSIXct(selected_attempt(), tz="UTC"))
-        } else {
-          slctattempt <- selected_answers
-        }
-        
-        slctattempt <- base::unique(dplyr::select(slctattempt, -start, -letter, -checked))
-        
-        slctattempt
+        selected_answers
       })
       
+      tests <- shiny::reactive({
+        shiny::req(!base::is.null(sample1()))
+        c("All", base::unique(sample1()$test))
+      })
+      selected_test <- editR::selection_server("select_test", tests)
+      sample2 <- shiny::reactive({
+        shiny::req(!base::is.null(sample1()))
+        shiny::req(!base::is.null(selected_test()))
+        selected_answers <- sample1()
+        if (selected_test() != "All"){
+          selected_answers <- dplyr::filter(selected_answers, test == selected_test())
+        }
+        selected_answers
+      })
+      
+      questions <- shiny::reactive({
+        shiny::req(!base::is.null(sample2()))
+        c("All", base::unique(sample2()$question))
+      })
+      selected_question <- editR::selection_server("select_question", questions)
+      sample3 <- shiny::reactive({
+        shiny::req(!base::is.null(sample2()))
+        shiny::req(!base::is.null(selected_question()))
+        selected_answers <- sample2()
+        if (selected_question() != "All"){
+          selected_answers <- dplyr::filter(selected_answers, question == selected_question())
+        }
+        selected_answers
+      })
+      
+      versions <- shiny::reactive({
+        shiny::req(!base::is.null(sample3()))
+        c("All", base::unique(sample3()$version))
+      })
+      selected_version <- editR::selection_server("select_version", versions)
+      sample4 <- shiny::reactive({
+        shiny::req(!base::is.null(sample3()))
+        shiny::req(!base::is.null(selected_version()))
+        selected_answers <- sample3()
+        if (selected_version() != "All"){
+          selected_answers <- dplyr::filter(selected_answers, version == selected_version())
+        }
+        selected_answers
+      })
+      
+      students <- shiny::reactive({
+        shiny::req(!base::is.null(sample4()))
+        c("All", base::unique(sample4()$studentid))
+      })
+      selected_student <- editR::selection_server("select_student", students)
+      sample5 <- shiny::reactive({
+        shiny::req(!base::is.null(sample4()))
+        shiny::req(!base::is.null(selected_student()))
+        selected_answers <- sample4()
+        if (selected_student() != "All"){
+          selected_answers <- dplyr::filter(selected_answers, studentid == selected_student())
+        }
+        selected_answers
+      })
+      
+      attempts <- shiny::reactive({
+        shiny::req(!base::is.null(sample5()))
+        c("All", base::unique(base::as.character(sample5()$end)))
+      })
+      selected_attempt <- editR::selection_server("select_attempt", attempts)
+      selected_answers <- shiny::reactive({
+        shiny::req(!base::is.null(sample5()))
+        shiny::req(!base::is.null(selected_attempt()))
+        selected_answers <- sample5()
+        if (selected_attempt() != "All"){
+          selected_answers <- dplyr::filter(selected_answers, end == base::as.POSIXct(selected_attempt(), tz="UTC"))
+        }
+        selected_answers |>
+          dplyr::select(intake, test, question, version, studentid, language, end) |>
+          base::unique()
+      })
+      
+      
+      shiny::observe({
+        selected_answers()
+      })
       
       
       ##########################################################################
@@ -295,7 +309,7 @@ grading_server <- function(id, course_data, course_paths){
           base::as.character() |>
           base::unique()
         
-        graded_items <- modrval$answers |>
+        graded_items <- modrval$workinprogress |>
           dplyr::filter(
             test == selected_answers()$test[1],
             question == selected_answers()$question[1],
@@ -439,17 +453,17 @@ grading_server <- function(id, course_data, course_paths){
           dplyr::select(-checked_chr) |>
           dplyr::arrange(letter)
         
-        update_answer <- modrval$answers |>
+        update_answer <- modrval$workinprogress |>
           dplyr::select(-letter, -checked) |>
           base::unique() |>
           dplyr::right_join(update_answer, by = c("test","intake","studentid","end","question","version"))
         
-        answers <- modrval$answers |>
+        answers <- modrval$workinprogress |>
           dplyr::anti_join(update_answer, by = c("test","intake","studentid","end","question","version")) |>
           dplyr::bind_rows(update_answer) |>
           dplyr::arrange(test, intake, studentid, question, version, letter)
         
-        modrval$answers <- answers
+        modrval$workinprogress <- answers
         base::save(answers, file = course_paths()$databases$answers)
         
         answers_to_file <- answers |>
@@ -598,7 +612,10 @@ grading_server <- function(id, course_data, course_paths){
         shiny::req(base::nrow(selected_answers()) == 1)
         
         criteria <- modrval$solutions |>
-          dplyr::filter(version == selected_answers()$version[1])
+          dplyr::filter(
+            test == selected_answers()$test[1],
+            version == selected_answers()$version[1]
+          )
         shiny::req(criteria$type[1] %in% c("Essay","Problem"))
         
         criteria <- criteria |>
@@ -701,7 +718,7 @@ grading_server <- function(id, course_data, course_paths){
       results <- shiny::reactive({
         
         shiny::req(!base::is.null(modrval$tests))
-        shiny::req(!base::is.null(modrval$answers))
+        shiny::req(!base::is.null(modrval$workinprogress))
         shiny::req(!base::is.null(modrval$solutions))
         shiny::req(!base::is.null(modrval$students))
         
@@ -714,7 +731,7 @@ grading_server <- function(id, course_data, course_paths){
             version = purrr::map2_chr(version, test_languages, function(x,y) stringr::str_replace(x,"US",y))
           )
         
-        results <- modrval$answers |>
+        results <- modrval$workinprogress |>
           dplyr::full_join(modrval$solutions, by = c("test","version","language","letter")) |>
           tidyr::replace_na(base::list(checked = 0)) |>
           dplyr::filter(!base::is.na(studentid)) |>
@@ -728,6 +745,7 @@ grading_server <- function(id, course_data, course_paths){
           dplyr::left_join(modrval$students, by = c("intake","language","team"), relationship = "many-to-many")
         
         results <- dplyr::bind_rows(indiresults, teamresults) |>
+          dplyr::filter(!base::is.na(checked), !base::is.na(weight)) |>
           dplyr::mutate(earned = checked * weight)
         
         results
@@ -793,8 +811,7 @@ grading_server <- function(id, course_data, course_paths){
         
         score <- scores() |>
           dplyr::filter(
-            studentid == selected_answers()$studentid[1] |
-              team == selected_answers()$studentid[1],
+            studentid == selected_answers()$studentid[1] | team == selected_answers()$studentid[1],
             question == selected_answers()$question[1],
             end == selected_answers()$end[1],
           ) |>
@@ -1071,17 +1088,19 @@ grading_server <- function(id, course_data, course_paths){
         
         if (input$defmetric == "grade"){
           testmetric <- grades() |>
-            dplyr::select(studentid, points = test_points, grade)
+            dplyr::mutate(section = "All", bloc = "All") |>
+            dplyr::select(test, section, bloc, intake, studentid, end, points = test_points, grade)
+            
         } else if (input$defmetric == "score") {
           testmetric <- scores() |>
-            dplyr::select(studentid, points, grade = score)
+            dplyr::select(test, section, bloc, intake, studentid, end, points, grade = score)
         } else {
-          testmetric <- scores() |>
-            dplyr::select(studentid, points, grade = earned)
+          testmetric <- results() |>
+            dplyr::select(test, section, bloc, intake, studentid, end, points, grade = earned)
         }
         
         testmetric  |>
-          dplyr::group_by(studentid) |>
+          dplyr::group_by(test, section, bloc, intake, studentid, end) |>
           dplyr::summarise(points = base::sum(points), grade = base::sum(grade))
       })
       
@@ -1095,18 +1114,35 @@ grading_server <- function(id, course_data, course_paths){
         )
       })
       
-      output$testmetrics <- shiny::renderUI({
+      
+      distribution_base <- shiny::reactive({
         shiny::req(!base::is.null(testmetric()))
+        shiny::req(!base::is.null(selected_answers()))
+        modrval$workinprogress |>
+          dplyr::filter(
+            intake == selected_answers()$intake[[1]],
+            test == selected_answers()$test[[1]]
+          ) |>
+          dplyr::select(test, intake, studentid, end) |>
+          base::unique() |>
+          dplyr::left_join(testmetric(), by = c("test","intake","studentid","end")) |>
+          dplyr::group_by(test, intake, studentid, end) |>
+          dplyr::summarise(points = base::sum(points), grade = base::sum(grade))
+      })
+      
+      
+      output$testmetrics <- shiny::renderUI({
+        shiny::req(!base::is.null(distribution_base()))
         shiny::req(!base::is.null(input$defpass))
         
-        count <- base::length(base::unique(testmetric()$studentid))
-        minimum <- base::round(base::min(stats::na.omit(testmetric()$grade)),2)
-        ave <- base::round(base::mean(stats::na.omit(testmetric()$grade)),2)
-        med <- base::round(stats::median(stats::na.omit(testmetric()$grade)),2)
-        maximum <- base::round(base::max(stats::na.omit(testmetric()$grade)),2)
+        count <- base::length(base::unique(distribution_base()$studentid))
+        minimum <- base::round(base::min(stats::na.omit(distribution_base()$grade)),2)
+        ave <- base::round(base::mean(stats::na.omit(distribution_base()$grade)),2)
+        med <- base::round(stats::median(stats::na.omit(distribution_base()$grade)),2)
+        maximum <- base::round(base::max(stats::na.omit(distribution_base()$grade)),2)
         range <- minimum-minimum
-        stddev <- base::round(stats::sd(stats::na.omit(testmetric()$grade)),2)
-        passrate <- base::round(100*base::mean(stats::na.omit(testmetric()$grade) >= input$defpass),2)
+        stddev <- base::round(stats::sd(stats::na.omit(distribution_base()$grade)),2)
+        passrate <- base::round(100*base::mean(stats::na.omit(distribution_base()$grade) >= input$defpass),2)
         base::list(
           shinydashboard::valueBox(count, "Students", shiny::icon("users"), "maroon", width = 2),
           shinydashboard::valueBox(minimum, "Minimum", shiny::icon("sort-down"), "red", width = 1),
@@ -1119,10 +1155,10 @@ grading_server <- function(id, course_data, course_paths){
       })
       
       output$testdistribution <- shiny::renderPlot({
-        shiny::req(!base::is.null(testmetric()))
+        shiny::req(!base::is.null(distribution_base()))
         shiny::req(!base::is.null(input$defpass))
         shiny::req(!base::is.null(input$defhistbreaks))
-        chartR::draw_grade_distribution(testmetric(), input$defpass, input$defhistbreaks)
+        chartR::draw_grade_distribution(distribution_base(), input$defpass, input$defhistbreaks)
       })
       
       

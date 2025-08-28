@@ -28,6 +28,10 @@ grading_ui <- function(id){
     shiny::fluidRow(
       shiny::column(
         2,
+        editR::selection_ui(ns("select_intake"), "Intake:")
+      ),
+      shiny::column(
+        2,
         editR::selection_ui(ns("select_test"), "Test:")
       ),
       shiny::column(
@@ -37,10 +41,6 @@ grading_ui <- function(id){
       shiny::column(
         2,
         editR::selection_ui(ns("select_version"), "Version:")
-      ),
-      shiny::column(
-        2,
-        editR::selection_ui(ns("select_intake"), "Intake:")
       ),
       shiny::column(
         2,
