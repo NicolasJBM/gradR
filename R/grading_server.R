@@ -1230,6 +1230,7 @@ grading_server <- function(id, course_data, course_paths){
         tbltree <- course_data()$tbltrees[[base::paste0(intake$tree[[1]], ".RData")]]
         textbook <- classR::trees_structure_textbook(tbltree, intake$tree[1], intake$website[1])
         comments <- modrval$comments
+        students <- modrval$students
         
         base::list(
           selected_answers = selected_answers,
@@ -1240,7 +1241,8 @@ grading_server <- function(id, course_data, course_paths){
           intake = intake,
           tbltree = tbltree,
           textbook = textbook,
-          comments = comments
+          comments = comments,
+          students = students
         )
       })
       

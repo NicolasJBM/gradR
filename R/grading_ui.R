@@ -66,7 +66,12 @@ grading_ui <- function(id){
         shiny::fluidRow(
           shiny::column(
             4,
-            shiny::uiOutput(ns("viewversion"))
+            shiny::uiOutput(ns("customcomment")),
+            shiny::actionButton(
+              ns("save_comment"), "Save the comment",
+              icon = shiny::icon("save"),
+              style = "background-color:#006600;color:#FFF;width:100%;"
+            )
           ),
           shiny::column(
             4,
@@ -76,12 +81,7 @@ grading_ui <- function(id){
               icon = shiny::icon("file-import"),
               style = "background-color:#000066;color:#FFF;width:100%;"
             ),
-            shiny::uiOutput(ns("customcomment")),
-            shiny::actionButton(
-              ns("save_comment"), "Save the comment",
-              icon = shiny::icon("save"),
-              style = "background-color:#006600;color:#FFF;width:100%;"
-            )
+            shiny::uiOutput(ns("viewversion"))
           ),
           shiny::column(
             4,
