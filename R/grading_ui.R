@@ -66,12 +66,15 @@ grading_ui <- function(id){
         shiny::fluidRow(
           shiny::column(
             4,
-            shiny::uiOutput(ns("customcomment")),
-            shiny::actionButton(
-              ns("save_comment"), "Save the comment",
-              icon = shiny::icon("save"),
-              style = "background-color:#006600;color:#FFF;width:100%;"
-            )
+            shiny::uiOutput(ns("displaywordcount")),
+            shinyWidgets::materialSwitch(
+              inputId = ns("dispallkw"),
+              label = "Highlight all keywords", 
+              status = "primary",
+              value = FALSE,
+              right = TRUE
+            ),
+            shiny::uiOutput(ns("keywords_selection"))
           ),
           shiny::column(
             4,
@@ -86,15 +89,12 @@ grading_ui <- function(id){
           shiny::column(
             4,
             shiny::uiOutput(ns("displayscore")),
-            shiny::uiOutput(ns("displaywordcount")),
-            shinyWidgets::materialSwitch(
-              inputId = ns("dispallkw"),
-              label = "Highlight all keywords", 
-              status = "primary",
-              value = FALSE,
-              right = TRUE
-            ),
-            shiny::uiOutput(ns("keywords_selection"))
+            shiny::uiOutput(ns("customcomment")),
+            shiny::actionButton(
+              ns("save_comment"), "Save the comment",
+              icon = shiny::icon("save"),
+              style = "background-color:#006600;color:#FFF;width:100%;"
+            )
           )
         )
       ),
