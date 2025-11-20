@@ -34,7 +34,8 @@ Imports:
   shinyAce,
   shinydashboardPlus,
   shinybusy,
-  blastula
+  blastula,
+  rmarkdown
 Remotes:
   NicolasJBM/editR,
   NicolasJBM/chartR,

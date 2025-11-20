@@ -71,6 +71,7 @@
 #' @importFrom tibble tibble
 #' @importFrom tidyr replace_na
 #' @importFrom tidyr unnest
+#' @importFrom rmarkdown render
 #' @export
 
 
@@ -1105,16 +1106,6 @@ grading_server <- function(id, course_data, course_paths){
       })
       
       
-      shiny::observe({
-        shiny::req(!base::is.null(testmetric()))
-        shiny::updateNumericInput(
-          session,
-          "defpass",
-          value = (base::ceiling(0.5*base::max(testmetric()$grade)))
-        )
-      })
-      
-      
       distribution_base <- shiny::reactive({
         shiny::req(!base::is.null(testmetric()))
         shiny::req(!base::is.null(selected_answers()))
@@ -1134,7 +1125,7 @@ grading_server <- function(id, course_data, course_paths){
       output$testmetrics <- shiny::renderUI({
         shiny::req(!base::is.null(distribution_base()))
         shiny::req(!base::is.null(input$defpass))
-        
+        passgrade <- input$defpass * distribution_base()$points[1]
         count <- base::length(base::unique(distribution_base()$studentid))
         minimum <- base::round(base::min(stats::na.omit(distribution_base()$grade)),2)
         ave <- base::round(base::mean(stats::na.omit(distribution_base()$grade)),2)
@@ -1142,7 +1133,7 @@ grading_server <- function(id, course_data, course_paths){
         maximum <- base::round(base::max(stats::na.omit(distribution_base()$grade)),2)
         range <- minimum-minimum
         stddev <- base::round(stats::sd(stats::na.omit(distribution_base()$grade)),2)
-        passrate <- base::round(100*base::mean(stats::na.omit(distribution_base()$grade) >= input$defpass),2)
+        passrate <- base::round(100*base::mean(stats::na.omit(distribution_base()$grade) >= passgrade),2)
         base::list(
           shinydashboard::valueBox(count, "Students", shiny::icon("users"), "maroon", width = 2),
           shinydashboard::valueBox(minimum, "Minimum", shiny::icon("sort-down"), "red", width = 1),
@@ -1158,7 +1149,13 @@ grading_server <- function(id, course_data, course_paths){
         shiny::req(!base::is.null(distribution_base()))
         shiny::req(!base::is.null(input$defpass))
         shiny::req(!base::is.null(input$defhistbreaks))
-        chartR::draw_grade_distribution(distribution_base(), input$defpass, input$defhistbreaks)
+        shiny::req(!base::is.null(input$deffacet))
+        passgrade <- input$defpass * distribution_base()$points[1]
+        students <- modrval$students |>
+          dplyr::mutate(studentid = base::paste0("s", studentid))
+        distribution <- distribution_base() |>
+          dplyr::left_join(students, by = c("studentid","intake"))
+        chartR::draw_grade_distribution(distribution, passgrade, input$defhistbreaks, input$deffacet)
       })
       
       
@@ -1253,6 +1250,8 @@ grading_server <- function(id, course_data, course_paths){
         input$refreshfeedback
         feedback_data <- feedback_data()
         lines <- readr::read_lines(feedback_template_path())
+        slctstudentid <- selected_answers()$studentid[1]
+        slctteamid <- selected_answers()$team[1]
         base::suppressWarnings(
           shiny::withMathJax(shiny::HTML(knitr::knit2html(
             text = lines, quiet = TRUE, template = FALSE
@@ -1384,8 +1383,8 @@ grading_server <- function(id, course_data, course_paths){
         
         for (i in base::seq_len(msgnbr)){
           pgr <- pgr + 1/msgnbr
-          studentid <- valid_recipients$student[i]
-          teamid <- valid_recipients$team[i]
+          slctstudentid <- valid_recipients$student[i]
+          slctteamid <- valid_recipients$team[i]
           emailaddress <- valid_recipients$email[i]
           
           
@@ -1407,7 +1406,49 @@ grading_server <- function(id, course_data, course_paths){
       
       
       
-      
+      shiny::observeEvent(input$printfeedback, {
+        
+        feedback_data <- feedback_data()
+        
+        valid_recipients <- feedback_data$grades |>
+          dplyr::select(test, intake, language, studentid, team, email) |>
+          dplyr::filter(
+            language == input$slctexamlang,
+            test == feedback_data$selected_answers$test[1],
+            intake == feedback_data$selected_answers$intake
+          ) |>
+          base::unique()
+        
+        shinybusy::show_modal_spinner(
+          spin = "orbit",
+          text = "Please wait while the e-mail is sent..."
+        )
+        
+        msgnbr <- base::nrow(valid_recipients)
+        pgr <- 1/msgnbr
+        shinybusy::show_modal_progress_line(
+          value = pgr, text = "Reporting progress:"
+        )
+        for (i in base::seq_len(msgnbr)){
+          pgr <- pgr + 1/msgnbr
+          slctstudentid <- valid_recipients$studentid[i]
+          slctteamid <- valid_recipients$team[i]
+          
+          rmarkdown::render(
+            input = feedback_template_path(),
+            output_file = base::paste0(slctstudentid, ".html"),
+            output_dir = "tmp"
+          )
+          
+          shinybusy::update_modal_progress(pgr)
+        }
+        shinybusy::remove_modal_progress()
+        shinyalert::shinyalert(
+          "Task complete!", "A report has been printed for each recipient individually.",
+          type = "success", closeOnEsc = FALSE, closeOnClickOutside = TRUE
+        )
+        
+      })
       
       
     }

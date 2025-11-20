@@ -155,9 +155,14 @@ grading_ui <- function(id){
             shiny::selectInput(
               ns("defmetric"), "Metric:",
               choices = c("earned","score","grade"),
-              selected = "earned", width = "100%"
+              selected = "grade", width = "100%"
             ),
-            shiny::numericInput(ns("defpass"), "Pass:", value = 0, width = "100%")
+            shiny::sliderInput(ns("defpass"), "Pass:", value = 0.6, width = "100%", min = 0, max = 1, step = 0.01),
+            shiny::selectInput(
+              ns("deffacet"), "Facet:",
+              choices = c("none","team","gender","language"),
+              selected = "none", width = "100%"
+            )
           ),
           shiny::column(
             10,
@@ -259,6 +264,10 @@ grading_ui <- function(id){
                       ns("sendfeedback"), "Send to all", icon = shiny::icon("paper-plane"),
                       style = "background-color:#330066;color:#FFF;width:100%;margin-bottom:10px;"
                     ),
+                    shiny::actionButton(
+                      ns("printfeedback"), "Print all", icon = shiny::icon("print"),
+                      style = "background-color:#006633;color:#FFF;width:100%;margin-bottom:10px;"
+                    )
                   )
                 )
               )
