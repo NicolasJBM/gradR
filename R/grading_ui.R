@@ -24,8 +24,11 @@
 grading_ui <- function(id){
   ns <- shiny::NS(id)
   base::list(
-    shiny::uiOutput(ns("slctlanguage")),
     shiny::fluidRow(
+      shiny::column(
+        1,
+        shiny::uiOutput(ns("slctlanguage"))
+      ),
       shiny::column(
         2,
         editR::selection_ui(ns("select_intake"), "Intake:")
@@ -47,7 +50,7 @@ grading_ui <- function(id){
         editR::selection_ui(ns("select_student"), "Student:")
       ),
       shiny::column(
-        2,
+        1,
         editR::selection_ui(ns("select_attempt"), "Attempt:")
       )
     ),
