@@ -51,7 +51,7 @@ grading_ui <- function(id){
       ),
       shiny::column(
         1,
-        editR::selection_ui(ns("select_attempt"), "Attempt:")
+        shiny::uiOutput(ns("select_attempt"))
       )
     ),
     shinydashboard::tabBox(

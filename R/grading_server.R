@@ -272,13 +272,21 @@ grading_server <- function(id, course_data, course_paths){
         shiny::req(!base::is.null(sample5()))
         c("All", base::unique(base::as.character(sample5()$end)))
       })
-      selected_attempt <- editR::selection_server("select_attempt", attempts)
+      output$select_attempt <- shiny::renderUI({
+        shinyWidgets::pickerInput(
+          inputId = ns("selected_attempt"),
+          label = "Attempt:", 
+          choices = attempts(),
+          width = "100%"
+        )
+      })
+      
       selected_answers <- shiny::reactive({
         shiny::req(!base::is.null(sample5()))
-        shiny::req(!base::is.null(selected_attempt()))
+        shiny::req(!base::is.null(input$selected_attempt))
         selected_answers <- sample5()
-        if (selected_attempt() != "All"){
-          selected_answers <- dplyr::filter(selected_answers, end == base::as.POSIXct(selected_attempt(), tz="UTC"))
+        if (input$selected_attempt != "All"){
+          selected_answers <- dplyr::filter(selected_answers, end == base::as.POSIXct(input$selected_attempt, tz="UTC"))
         }
         selected_answers |>
           dplyr::select(intake, test, question, version, studentid, language, end) |>
