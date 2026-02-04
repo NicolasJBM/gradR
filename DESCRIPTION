@@ -29,7 +29,6 @@ Imports:
   shinyWidgets,
   shinyalert,
   shinydashboard,
-  classR,
   rstudioapi,
   shinyAce,
   shinydashboardPlus,
@@ -38,5 +37,4 @@ Imports:
   rmarkdown
 Remotes:
   NicolasJBM/editR,
-  NicolasJBM/chartR,
-  NicolasJBM/classR
+  NicolasJBM/chartR

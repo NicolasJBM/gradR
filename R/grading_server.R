@@ -7,7 +7,6 @@
 #' @param course_paths Reactive. Function containing a list of paths to the different folders and databases on local disk.
 #' @return Save the test results in the relevant test sub-folder.
 #' @importFrom chartR draw_grade_distribution
-#' @importFrom classR trees_structure_textbook
 #' @importFrom dplyr anti_join
 #' @importFrom dplyr arrange
 #' @importFrom dplyr bind_rows
@@ -1233,7 +1232,6 @@ grading_server <- function(id, course_data, course_paths){
         documents <- course_data()$databases$documents
         intake <- dplyr::filter(course_data()$intakes, intake == selected_answers()$intake[1])
         tbltree <- course_data()$tbltrees[[base::paste0(intake$tree[[1]], ".RData")]]
-        textbook <- classR::trees_structure_textbook(tbltree, intake$tree[1], intake$website[1])
         comments <- modrval$comments
         students <- modrval$students
         
@@ -1245,7 +1243,6 @@ grading_server <- function(id, course_data, course_paths){
           documents = documents,
           intake = intake,
           tbltree = tbltree,
-          textbook = textbook,
           comments = comments,
           students = students
         )
@@ -1266,14 +1263,6 @@ grading_server <- function(id, course_data, course_paths){
           )))
         )
       })
-      
-      
-      
-      
-      
-      
-      
-      
       
       
       
@@ -1351,11 +1340,6 @@ grading_server <- function(id, course_data, course_paths){
           )
         }
       })
-      
-      
-      
-      
-      
       
       
       
