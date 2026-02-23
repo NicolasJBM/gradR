@@ -3,6 +3,7 @@
 #' @author Nicolas Mangin
 #' @description Module allowing the user to grade, check, and calibrate tests.
 #' @param id Character. ID of the module to connect the user interface to the appropriate server side.
+#' @param selected_intake Reactive. Name of the selected intake.
 #' @param course_data Reactive. Function containing all the course data loaded with the course.
 #' @param course_paths Reactive. Function containing a list of paths to the different folders and databases on local disk.
 #' @return Save the test results in the relevant test sub-folder.
@@ -75,7 +76,7 @@
 
 
 
-grading_server <- function(id, course_data, course_paths){
+grading_server <- function(id, selected_intake, course_data, course_paths){
   ns <- shiny::NS(id)
   shiny::moduleServer(
     id,
@@ -156,146 +157,244 @@ grading_server <- function(id, course_data, course_paths){
       ##########################################################################
       # Loading
       
-      modrval <- shiny::reactiveValues()
-      
-      shiny::observe({
-        shiny::req(!base::is.na(course_data()$answers))
-        shiny::isolate({
-          modrval$tests <- course_data()$tests
-          modrval$solutions <- course_data()$solutions
-          modrval$answers <- course_data()$answers
-          modrval$students <- course_data()$students
-          modrval$languages <- course_data()$languages
-          modrval$workinprogress <- course_data()$answers
-        })
-      })
-      
-      ##########################################################################
-      # Selection
-      
       output$slctlanguage <- shiny::renderUI({
-        shiny::req(base::nrow(modrval$answers) > 0)
-        exam_languages <- course_data()$languages |>
-          dplyr::filter(langiso %in% base::unique(modrval$answers$language))
+        shiny:::req(!base::is.null(course_data()$languages))
         shinyWidgets::radioGroupButtons(
-          inputId = ns("slctexamlang"), label = NULL,
+          inputId = ns("slctexamlang"), label = "Language:",
           choiceNames = base::lapply(
-            base::seq_along(exam_languages$langiso), 
+            base::seq_along(course_data()$languages$langiso), 
             function(i) shiny::tagList(
-              shiny::tags$img(src = exam_languages$flag[i], width = 20, height = 15),
-              exam_languages$language[i]
+              shiny::tags$img(src = course_data()$languages$flag[i], width = 20, height = 15),
+              course_data()$languages$language[i]
             )
           ),
-          choiceValues = exam_languages$langiso,
-          status = "primary", justified = FALSE, size = "sm",
-          direction = "horizontal",
+          choiceValues = course_data()$languages$langiso,
+          status = "danger",
+          justified = TRUE,
+          size = "sm",
+          direction = "vertical",
           checkIcon = base::list(yes = shiny::icon("check"))
         )
       })
       
-      intakes <- shiny::reactive({
-        c("All", base::unique(modrval$answers$intake))
-      })
-      selected_intake <- editR::selection_server("select_intake", intakes)
-      sample1 <- shiny::reactive({
+      modrval <- shiny::reactiveValues()
+      
+      shiny::observe({
+        shiny::req(!base::is.null(course_data()$answers))
         shiny::req(!base::is.null(input$slctexamlang))
-        shiny::req(!base::is.null(selected_intake()))
-        selected_answers <- dplyr::filter(modrval$answers, language == input$slctexamlang)
-        if (selected_intake() != "All"){
-          selected_answers <- dplyr::filter(selected_answers, intake == selected_intake())
-        }
-        selected_answers
+        shiny::isolate({
+          modrval$answers <- course_data()$answers
+          modrval$tests <- course_data()$tests |>
+            dplyr::mutate(
+              question = stringr::str_replace_all(question, "US.Rmd$", base::paste0(input$slctexamlang, ".Rmd")),
+              version = stringr::str_replace_all(version, "^US", input$slctexamlang)
+            )
+          modrval$solutions <- course_data()$solutions
+          modrval$students <- course_data()$students
+          modrval$workinprogress <- course_data()$answers
+        })
       })
       
-      tests <- shiny::reactive({
-        shiny::req(!base::is.null(sample1()))
-        c("All", base::unique(sample1()$test))
-      })
-      selected_test <- editR::selection_server("select_test", tests)
-      sample2 <- shiny::reactive({
-        shiny::req(!base::is.null(sample1()))
-        shiny::req(!base::is.null(selected_test()))
-        selected_answers <- sample1()
-        if (selected_test() != "All"){
-          selected_answers <- dplyr::filter(selected_answers, test == selected_test())
-        }
-        selected_answers
+      
+      selection_base <- shiny::reactive({
+        shiny::req(!base::is.na(modrval$answers))
+        
+        
+        View(modrval$answers)
+        View(modrval$tests)
+        
+        modrval$answers |>
+          dplyr::select(test, intake, language, studentid, end, version, letter, checked) |>
+          dplyr::left_join(dplyr::select(modrval$tests, test, question, version, test_unit), by = c("test","version")) |>
+          dplyr::select(test, question, version, intake, studentid, test_unit, language, end, letter, checked)
       })
       
-      questions <- shiny::reactive({
-        shiny::req(!base::is.null(sample2()))
-        c("All", base::unique(sample2()$question))
-      })
-      selected_question <- editR::selection_server("select_question", questions)
-      sample3 <- shiny::reactive({
-        shiny::req(!base::is.null(sample2()))
-        shiny::req(!base::is.null(selected_question()))
-        selected_answers <- sample2()
-        if (selected_question() != "All"){
-          selected_answers <- dplyr::filter(selected_answers, question == selected_question())
+      
+      
+      ##########################################################################
+      # Selection
+      
+      output$filters <- shiny::renderUI({
+        shiny::req(!base::is.null(selection_base()))
+        
+        View(selection_base())
+        
+        shiny::req(!base::is.null(input$filtertype))
+        if (input$filtertype == "Student"){
+          base::list(
+            shiny::fluidRow(
+              shiny::column(
+                3,
+                shinyWidgets::virtualSelectInput(
+                  inputId = ns("select_student"),
+                  label = "Student:", 
+                  choices = base::unique(selection_base()$studentid),
+                  multiple = FALSE, 
+                  hasOptionDescription = FALSE,
+                  width = "100%",
+                  dropboxWrapper = "body"
+                )
+              ),
+              shiny::column(
+                3,
+                shinyWidgets::virtualSelectInput(
+                  inputId = ns("select_test"),
+                  label = "Test:", 
+                  choices = base::unique(selection_base()$test),
+                  multiple = FALSE, 
+                  hasOptionDescription = FALSE,
+                  width = "100%",
+                  dropboxWrapper = "body"
+                )
+              ),
+              shiny::column(
+                3,
+                shinyWidgets::virtualSelectInput(
+                  inputId = ns("select_attempt"),
+                  label = "Attempt:", 
+                  choices = base::unique(selection_base()$end),
+                  multiple = FALSE, 
+                  hasOptionDescription = FALSE,
+                  width = "100%",
+                  dropboxWrapper = "body"
+                )
+              )
+            ),
+            shiny::fluidRow(
+              shiny::column(
+                6,
+                editR::selection_ui(ns("select_question"), "Question:")
+              ),
+              shiny::column(
+                6,
+                editR::selection_ui(ns("select_version"), "Version:")
+              )
+            )
+          )
+        } else {
+          base::list(
+            shiny::fluidRow(
+              shiny::column(
+                3,
+                shinyWidgets::virtualSelectInput(
+                  inputId = ns("select_test"),
+                  label = "Test:", 
+                  choices = base::unique(selection_base()$test),
+                  multiple = FALSE, 
+                  hasOptionDescription = FALSE,
+                  width = "100%",
+                  dropboxWrapper = "body"
+                )
+              ),
+              shiny::column(
+                3,
+                shinyWidgets::virtualSelectInput(
+                  inputId = ns("select_question"),
+                  label = "Question:", 
+                  choices = base::unique(selection_base()$question),
+                  multiple = FALSE, 
+                  hasOptionDescription = FALSE,
+                  width = "100%",
+                  dropboxWrapper = "body"
+                )
+              ),
+              shiny::column(
+                3,
+                shinyWidgets::virtualSelectInput(
+                  inputId = ns("select_version"),
+                  label = "Version:", 
+                  choices = base::unique(selection_base()$version),
+                  multiple = FALSE, 
+                  hasOptionDescription = FALSE,
+                  width = "100%",
+                  dropboxWrapper = "body"
+                )
+              ),
+              shiny::column(
+                3,
+                shinyWidgets::virtualSelectInput(
+                  inputId = ns("select_attempt"),
+                  label = "Attempt:", 
+                  choices = base::unique(selection_base()$end),
+                  multiple = FALSE, 
+                  hasOptionDescription = FALSE,
+                  width = "100%",
+                  dropboxWrapper = "body"
+                )
+              ),
+            ),
+            shiny::fluidRow(
+              editR::selection_ui(ns("select_student"), "Student:")
+            )
+          )
         }
-        selected_answers
       })
       
-      versions <- shiny::reactive({
-        shiny::req(!base::is.null(sample3()))
-        c("All", base::unique(sample3()$version))
-      })
-      selected_version <- editR::selection_server("select_version", versions)
-      sample4 <- shiny::reactive({
-        shiny::req(!base::is.null(sample3()))
-        shiny::req(!base::is.null(selected_version()))
-        selected_answers <- sample3()
-        if (selected_version() != "All"){
-          selected_answers <- dplyr::filter(selected_answers, version == selected_version())
+      
+      preselected_answers <- shiny::reactive({
+        shiny::req(!base::is.null(selection_base()))
+        shiny::req(!base::is.null(input$select_student))
+        shiny::req(!base::is.null(input$select_version))
+        
+        if (input$filtertype == "Student"){
+          after_language <- dplyr::filter(selection_base(), language == input$slctexamlang)
+          after_student <- dplyr::filter(after_language, studentid == input$select_student)
+          alfter_test <- dplyr::filter(after_student, test == input$select_test)
+          after_question <- dplyr::filter(alfter_test, question == input$select_question)
+          
+          modrval$selected_questions <- base::unique(alfter_test$question)
+          modrval$selected_versions <- base::unique(after_question$version)
+          modrval$selected_students <- base::unique(after_language$student)
+          
+          shinyWidgets::updateVirtualSelect(ns("selected_versions"), choices = modrval$selected_versions)
+          
+          preselected <- after_question
+        } else {
+          
+          after_language <- dplyr::filter(selection_base(), language == input$slctexamlang)
+          alfter_test <- dplyr::filter(after_language, language == input$select_test)
+          after_question <- dplyr::filter(alfter_test, language == input$select_question)
+          after_version <- dplyr::filter(after_question, language == input$select_version)
+          
+          modrval$selected_questions <- base::character(base::unique(alfter_test$question))
+          modrval$selected_versions <- base::character(base::unique(after_question$version))
+          modrval$selected_students <- base::character(base::unique(after_version$student))
+          
+          shinyWidgets::updateVirtualSelect(ns("selected_students"), choices = modrval$selected_students)
+          
+          preselected <- after_version
         }
-        selected_answers
       })
       
-      students <- shiny::reactive({
-        shiny::req(!base::is.null(sample4()))
-        c("All", base::unique(sample4()$studentid))
-      })
-      selected_student <- editR::selection_server("select_student", students)
-      sample5 <- shiny::reactive({
-        shiny::req(!base::is.null(sample4()))
-        shiny::req(!base::is.null(selected_student()))
-        selected_answers <- sample4()
-        if (selected_student() != "All"){
-          selected_answers <- dplyr::filter(selected_answers, studentid == selected_student())
-        }
-        selected_answers
-      })
+      #selected_question <- editR::selection_server("select_question", modrval$selected_questions)
+      #selected_version <- editR::selection_server("select_version", modrval$selected_versions)
+      #selected_student <- editR::selection_server("select_student", modrval$selected_students)
       
-      attempts <- shiny::reactive({
-        shiny::req(!base::is.null(sample5()))
-        c("All", base::unique(base::as.character(sample5()$end)))
-      })
-      output$select_attempt <- shiny::renderUI({
-        shinyWidgets::pickerInput(
-          inputId = ns("selected_attempt"),
-          label = "Attempt:", 
-          choices = attempts(),
-          width = "100%"
-        )
-      })
+      
       
       selected_answers <- shiny::reactive({
-        shiny::req(!base::is.null(sample5()))
-        shiny::req(!base::is.null(input$selected_attempt))
-        selected_answers <- sample5()
-        if (input$selected_attempt != "All"){
-          selected_answers <- dplyr::filter(selected_answers, end == base::as.POSIXct(input$selected_attempt, tz="UTC"))
+        shiny::req(!base::is.null(preselected_answers()))
+        if (input$filtertype == "Student"){
+          shiny::req(!base::is.null(input$select_version))
+          preselected_answers() |>
+            dplyr::filter(version == input$select_version)
+        } else {
+          shiny::req(!base::is.null(input$select_student))
+          preselected_answers() |>
+            dplyr::filter(version == input$select_version)
         }
-        selected_answers |>
-          dplyr::select(intake, test, question, version, studentid, language, end) |>
-          base::unique()
       })
+      
+      
       
       
       shiny::observe({
-        selected_answers()
+        shiny::req(!base::is.null(selected_answers()))
+        View(selected_answers())
       })
+      
+      
+      
       
       
       ##########################################################################

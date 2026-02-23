@@ -30,32 +30,39 @@ grading_ui <- function(id){
         shiny::uiOutput(ns("slctlanguage"))
       ),
       shiny::column(
-        2,
-        editR::selection_ui(ns("select_intake"), "Intake:")
-      ),
-      shiny::column(
-        2,
-        editR::selection_ui(ns("select_test"), "Test:")
-      ),
-      shiny::column(
-        2,
-        editR::selection_ui(ns("select_question"), "Question:")
-      ),
-      shiny::column(
-        2,
-        editR::selection_ui(ns("select_version"), "Version:")
-      ),
-      shiny::column(
-        2,
-        editR::selection_ui(ns("select_student"), "Student:")
-      ),
-      shiny::column(
         1,
-        shiny::uiOutput(ns("select_attempt"))
+        shinyWidgets::radioGroupButtons(
+          inputId = ns("filtertype"),
+          label = "Focus:",
+          choiceNames = c(
+            "<i class='fa fa-circle-question'>Question</i>",
+            "<i class='fa fa-circle-user'>Student</i>"
+          ),
+          choiceValues = c("Question","Student"),
+          status = "primary",
+          selected = "Question",
+          justified = TRUE,
+          size = "sm",
+          direction = "vertical",
+          checkIcon = base::list(yes = shiny::icon("check"))
+        )
+      ),
+      shiny::column(
+        10,
+        shiny::uiOutput(ns("filters"))
       )
     ),
     shinydashboard::tabBox(
       side = "left", width = "100%",
+      shiny::tabPanel(
+        title = shiny::tagList(
+          shiny::icon("upload"), shiny::span(
+            "Import",
+            title = "Import answers from students and create grading files."
+          )
+        ),
+        shiny::tags$hr()
+      ),
       shiny::tabPanel(
         title = shiny::tagList(
           shiny::icon("tasks"),
