@@ -126,7 +126,6 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
       confidence <- NULL
       encoding <- NULL
       selected_answer <- NULL
-      selected_intake <- NULL
       start <- NULL
       test <- NULL
       test_languages <- NULL
@@ -158,7 +157,7 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
       # Loading
       
       output$slctlanguage <- shiny::renderUI({
-        shiny:::req(!base::is.null(course_data()$languages))
+        shiny::req(!base::is.null(course_data()$languages))
         shinyWidgets::radioGroupButtons(
           inputId = ns("slctexamlang"), label = "Language:",
           choiceNames = base::lapply(
@@ -196,197 +195,185 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
       })
       
       
-      selection_base <- shiny::reactive({
-        shiny::req(!base::is.na(modrval$answers))
-        
-        
-        View(modrval$answers)
-        View(modrval$tests)
-        
-        modrval$answers |>
-          dplyr::select(test, intake, language, studentid, end, version, letter, checked) |>
-          dplyr::left_join(dplyr::select(modrval$tests, test, question, version, test_unit), by = c("test","version")) |>
-          dplyr::select(test, question, version, intake, studentid, test_unit, language, end, letter, checked)
-      })
-      
-      
-      
       ##########################################################################
       # Selection
       
+      shiny::observe({
+        if (input$filtertype == "Question"){
+          shiny::isolate({
+            modrval$labelfilterone <- "Test:"
+            modrval$labelfiltertwo <- "Question:"
+            modrval$labelfilterthree <- "Version:"
+            modrval$labelfilterfour <- "Student:"
+            modrval$labelfilterfive <- "Attempt:"
+          })
+        } else {
+          shiny::isolate({
+            modrval$labelfilterone <- "Student:"
+            modrval$labelfiltertwo <- "Test:"
+            modrval$labelfilterthree <- "Attempt:"
+            modrval$labelfilterfour <- "Question:"
+            modrval$labelfilterfive <- "Version:"
+          })
+        }
+      })
+      
+      selection_base <- shiny::reactive({
+        shiny::req(!base::is.na(modrval$answers))
+        shiny::req(!base::is.na(selected_intake()))
+        shiny::req(!base::is.na(input$slctexamlang))
+        selection <- modrval$answers |>
+          dplyr::select(test, intake, language, studentid, end, version, letter, checked) |>
+          dplyr::filter(intake == selected_intake(), language == input$slctexamlang) |>
+          dplyr::left_join(dplyr::select(modrval$tests, test, question, version, test_unit), by = c("test","version")) |>
+          dplyr::select(test, question, version, intake, studentid, test_unit, language, end, letter, checked) |>
+          dplyr::mutate(end = base::as.character(end))
+        if (input$filtertype == "Question"){
+          shinyWidgets::updateVirtualSelect(inputId = "filterone", choices = base::unique(selection$test))
+        } else {
+          shinyWidgets::updateVirtualSelect("filterone", choices = base::unique(selection$studentid))
+        }
+        stats::na.omit(selection)
+      })
+      
       output$filters <- shiny::renderUI({
+        base::list(
+          shiny::fluidRow(
+            shiny::column(
+              4,
+              shinyWidgets::virtualSelectInput(
+                inputId = ns("filterone"),
+                label = modrval$labelfilterone, 
+                choices = NA,
+                multiple = FALSE, 
+                hasOptionDescription = FALSE,
+                width = "100%",
+                dropboxWrapper = "body"
+              )
+            ),
+            shiny::column(
+              4,
+              shinyWidgets::virtualSelectInput(
+                inputId = ns("filtertwo"),
+                label = modrval$labelfiltertwo, 
+                choices = NA,
+                multiple = FALSE, 
+                hasOptionDescription = FALSE,
+                width = "100%",
+                dropboxWrapper = "body"
+              )
+            ),
+            shiny::column(
+              4,
+              shinyWidgets::virtualSelectInput(
+                inputId = ns("filterthree"),
+                label = modrval$labelfilterthree, 
+                choices = NA,
+                multiple = FALSE, 
+                hasOptionDescription = FALSE,
+                width = "100%",
+                dropboxWrapper = "body"
+              )
+            )
+          ),
+          shiny::fluidRow(
+            shiny::column(
+              6,
+              editR::selection_ui(ns("filterfour"), modrval$labelfilterfour)
+            ),
+            shiny::column(
+              6,
+              editR::selection_ui(ns("filterfive"), modrval$labelfilterfive)
+            )
+          )
+        )
+      })
+      
+      after_filter_one <- shiny::reactive({
         shiny::req(!base::is.null(selection_base()))
-        
-        View(selection_base())
-        
-        shiny::req(!base::is.null(input$filtertype))
-        if (input$filtertype == "Student"){
-          base::list(
-            shiny::fluidRow(
-              shiny::column(
-                3,
-                shinyWidgets::virtualSelectInput(
-                  inputId = ns("select_student"),
-                  label = "Student:", 
-                  choices = base::unique(selection_base()$studentid),
-                  multiple = FALSE, 
-                  hasOptionDescription = FALSE,
-                  width = "100%",
-                  dropboxWrapper = "body"
-                )
-              ),
-              shiny::column(
-                3,
-                shinyWidgets::virtualSelectInput(
-                  inputId = ns("select_test"),
-                  label = "Test:", 
-                  choices = base::unique(selection_base()$test),
-                  multiple = FALSE, 
-                  hasOptionDescription = FALSE,
-                  width = "100%",
-                  dropboxWrapper = "body"
-                )
-              ),
-              shiny::column(
-                3,
-                shinyWidgets::virtualSelectInput(
-                  inputId = ns("select_attempt"),
-                  label = "Attempt:", 
-                  choices = base::unique(selection_base()$end),
-                  multiple = FALSE, 
-                  hasOptionDescription = FALSE,
-                  width = "100%",
-                  dropboxWrapper = "body"
-                )
-              )
-            ),
-            shiny::fluidRow(
-              shiny::column(
-                6,
-                editR::selection_ui(ns("select_question"), "Question:")
-              ),
-              shiny::column(
-                6,
-                editR::selection_ui(ns("select_version"), "Version:")
-              )
-            )
-          )
+        shiny::req(base::nrow(selection_base()) > 0)
+        shiny::req(!base::is.null(input$filterone))
+        if (input$filtertype == "Question"){
+          selection <- selection_base() |>
+            dplyr::filter(test == input$filterone)
+          shinyWidgets::updateVirtualSelect("filtertwo", choices = base::unique(selection$question))
         } else {
-          base::list(
-            shiny::fluidRow(
-              shiny::column(
-                3,
-                shinyWidgets::virtualSelectInput(
-                  inputId = ns("select_test"),
-                  label = "Test:", 
-                  choices = base::unique(selection_base()$test),
-                  multiple = FALSE, 
-                  hasOptionDescription = FALSE,
-                  width = "100%",
-                  dropboxWrapper = "body"
-                )
-              ),
-              shiny::column(
-                3,
-                shinyWidgets::virtualSelectInput(
-                  inputId = ns("select_question"),
-                  label = "Question:", 
-                  choices = base::unique(selection_base()$question),
-                  multiple = FALSE, 
-                  hasOptionDescription = FALSE,
-                  width = "100%",
-                  dropboxWrapper = "body"
-                )
-              ),
-              shiny::column(
-                3,
-                shinyWidgets::virtualSelectInput(
-                  inputId = ns("select_version"),
-                  label = "Version:", 
-                  choices = base::unique(selection_base()$version),
-                  multiple = FALSE, 
-                  hasOptionDescription = FALSE,
-                  width = "100%",
-                  dropboxWrapper = "body"
-                )
-              ),
-              shiny::column(
-                3,
-                shinyWidgets::virtualSelectInput(
-                  inputId = ns("select_attempt"),
-                  label = "Attempt:", 
-                  choices = base::unique(selection_base()$end),
-                  multiple = FALSE, 
-                  hasOptionDescription = FALSE,
-                  width = "100%",
-                  dropboxWrapper = "body"
-                )
-              ),
-            ),
-            shiny::fluidRow(
-              editR::selection_ui(ns("select_student"), "Student:")
-            )
-          )
+          selection <- selection_base() |>
+            dplyr::filter(studentid == input$filterone)
+          shinyWidgets::updateVirtualSelect("filtertwo", choices = base::unique(selection$test))
+        }
+        selection
+      })
+      
+      after_filter_two <- shiny::reactive({
+        shiny::req(!base::is.null(after_filter_one()))
+        shiny::req(!base::is.null(input$filtertwo))
+        
+        if (input$filtertype == "Question"){
+          selection <- after_filter_one() |>
+            dplyr::filter(question == input$filtertwo)
+          shinyWidgets::updateVirtualSelect("filterthree", choices = base::unique(selection$version))
+        } else {
+          selection <- after_filter_one() |>
+            dplyr::filter(test == input$filtertwo)
+          shinyWidgets::updateVirtualSelect("filterthree", choices = base::unique(selection$end))
+        }
+        selection
+      })
+      
+      after_filter_three <- shiny::reactive({
+        shiny::req(!base::is.null(after_filter_two()))
+        shiny::req(!base::is.null(input$filterthree))
+        if (input$filtertype == "Question"){
+          selection <- after_filter_two() |>
+            dplyr::filter(version == input$filterthree)
+          base::unique(selection$studentid)
+        } else {
+          selection <- after_filter_two() |>
+            dplyr::filter(end == input$filterthree)
+          base::unique(selection$question)
         }
       })
       
+      selectedfour <- editR::selection_server("filterfour", after_filter_three)
       
-      preselected_answers <- shiny::reactive({
-        shiny::req(!base::is.null(selection_base()))
-        shiny::req(!base::is.null(input$select_student))
-        shiny::req(!base::is.null(input$select_version))
-        
-        if (input$filtertype == "Student"){
-          after_language <- dplyr::filter(selection_base(), language == input$slctexamlang)
-          after_student <- dplyr::filter(after_language, studentid == input$select_student)
-          alfter_test <- dplyr::filter(after_student, test == input$select_test)
-          after_question <- dplyr::filter(alfter_test, question == input$select_question)
-          
-          modrval$selected_questions <- base::unique(alfter_test$question)
-          modrval$selected_versions <- base::unique(after_question$version)
-          modrval$selected_students <- base::unique(after_language$student)
-          
-          shinyWidgets::updateVirtualSelect(ns("selected_versions"), choices = modrval$selected_versions)
-          
-          preselected <- after_question
+      after_filter_four <- shiny::reactive({
+        shiny::req(!base::is.null(after_filter_two()))
+        shiny::req(!base::is.null(input$filterthree))
+        shiny::req(!base::is.null(selectedfour()))
+        if (input$filtertype == "Question"){
+          selection <- after_filter_two() |>
+            dplyr::filter(version == input$filterthree) |>
+            dplyr::filter(studentid == selectedfour())
+          base::unique(selection$end)
         } else {
-          
-          after_language <- dplyr::filter(selection_base(), language == input$slctexamlang)
-          alfter_test <- dplyr::filter(after_language, language == input$select_test)
-          after_question <- dplyr::filter(alfter_test, language == input$select_question)
-          after_version <- dplyr::filter(after_question, language == input$select_version)
-          
-          modrval$selected_questions <- base::character(base::unique(alfter_test$question))
-          modrval$selected_versions <- base::character(base::unique(after_question$version))
-          modrval$selected_students <- base::character(base::unique(after_version$student))
-          
-          shinyWidgets::updateVirtualSelect(ns("selected_students"), choices = modrval$selected_students)
-          
-          preselected <- after_version
+          selection <- after_filter_two() |>
+            dplyr::filter(end == input$filterthree) |>
+            dplyr::filter(question == selectedfour())
+          base::unique(selection$version)
         }
       })
       
-      #selected_question <- editR::selection_server("select_question", modrval$selected_questions)
-      #selected_version <- editR::selection_server("select_version", modrval$selected_versions)
-      #selected_student <- editR::selection_server("select_student", modrval$selected_students)
-      
-      
+      selectedfive <- editR::selection_server("filterfive", after_filter_four)
       
       selected_answers <- shiny::reactive({
-        shiny::req(!base::is.null(preselected_answers()))
-        if (input$filtertype == "Student"){
-          shiny::req(!base::is.null(input$select_version))
-          preselected_answers() |>
-            dplyr::filter(version == input$select_version)
+        shiny::req(!base::is.null(after_filter_two()))
+        shiny::req(!base::is.null(input$filterthree))
+        shiny::req(!base::is.null(selectedfour()))
+        shiny::req(!base::is.null(selectedfive()))
+        if (input$filtertype == "Question"){
+          selection <- after_filter_two() |>
+            dplyr::filter(version == input$filterthree) |>
+            dplyr::filter(studentid == selectedfour()) |>
+            dplyr::filter(end == selectedfive())
         } else {
-          shiny::req(!base::is.null(input$select_student))
-          preselected_answers() |>
-            dplyr::filter(version == input$select_version)
+          selection <- after_filter_two() |>
+            dplyr::filter(end == input$filterthree) |>
+            dplyr::filter(question == selectedfour()) |>
+            dplyr::filter(version == selectedfive())
         }
+        selection
       })
-      
-      
-      
       
       shiny::observe({
         shiny::req(!base::is.null(selected_answers()))
@@ -394,15 +381,11 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
       })
       
       
-      
-      
-      
       ##########################################################################
       # Answer tab
       
       output$check_answers <- shiny::renderUI({
         shiny::req(!base::is.null(selected_answers()))
-        shiny::req(base::nrow(selected_answers()) == 1)
         
         solutions <- modrval$solutions |>
           dplyr::filter(
