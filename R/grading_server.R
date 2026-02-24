@@ -151,6 +151,7 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
       earned <- NULL
       outl <- NULL
       category <- NULL
+      end <- NULL
       
       
       
@@ -169,7 +170,7 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
             )
           ),
           choiceValues = course_data()$languages$langiso,
-          status = "danger",
+          status = "primary",
           justified = TRUE,
           size = "sm",
           direction = "vertical",
@@ -418,19 +419,6 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
       ##########################################################################
       # Answer tab
       
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
       output$check_answers <- shiny::renderUI({
         shiny::req(!base::is.null(selected_answers()))
         
@@ -457,95 +445,48 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
           ) |>
           dplyr::right_join(base::unique(dplyr::select(
             solutions, test, version, letter,
-            proposition, scale, correct
+            proposition, scale, correct, category
           )), by = c("test","version","letter")) |>
           tidyr::replace_na(base::list(checked = 0))
         
         if (typequest %in% c("Essay","Problem")){
           graded_items <- graded_items |>
             dplyr::arrange(proposition) |>
-            dplyr::select(letter, proposition, scale, checked, correct) |>
+            dplyr::select(category, letter, proposition, scale, checked, correct) |>
             base::unique()
         } else {
           graded_items <- graded_items |>
             dplyr::arrange(letter) |>
-            dplyr::select(letter, proposition, scale, checked, correct) |>
+            dplyr::select(category, letter, proposition, scale, checked, correct) |>
             base::unique()
         }
         
-        itemnbr <- base::nrow(graded_items)
+        categories <- base::unique(graded_items$category)
         
-        if (itemnbr < 7){
-          
-          ui <- base::list()
-          for (i in 1:itemnbr){
-            ui[[i]] <- gradR::make_scale(
-              letter = graded_items$letter[i],
-              proposition = graded_items$proposition[i],
-              scale = graded_items$scale[i],
-              checked = graded_items$checked[i],
-              correct = graded_items$correct[i],
-              ns
+        ui <- base::list()
+        for (cat in categories){
+          tmpitems <- dplyr::filter(graded_items, category == cat)
+          tmpui <- base::list()
+          for (i in base::seq_len(base::nrow(tmpitems))){
+            tmpui[[i]] <- gradR::make_scale(
+              letter = tmpitems$letter[i],
+              proposition = tmpitems$proposition[i],
+              scale = tmpitems$scale[i],
+              checked = tmpitems$checked[i],
+              correct = tmpitems$correct[i],
+              ns = ns
             )
           }
-          
-        } else{
-          
-          percolumn <- base::ceiling(itemnbr/3)
-          
-          col1 <- base::list()
-          for (i in 1:percolumn){
-            col1[[i]] <- gradR::make_scale(
-              letter = graded_items$letter[i],
-              proposition = graded_items$proposition[i],
-              scale = graded_items$scale[i],
-              checked = graded_items$checked[i],
-              correct = graded_items$correct[i],
-              ns
-            )
-          }
-          
-          beg <- percolumn+1
-          end <- percolumn*2
-          
-          col2 <- base::list()
-          for (i in beg:end){
-            col2[[(i-percolumn)]] <- gradR::make_scale(
-              letter = graded_items$letter[i],
-              proposition = graded_items$proposition[i],
-              scale = graded_items$scale[i],
-              checked = graded_items$checked[i],
-              correct = graded_items$correct[i],
-              ns
-            )
-          }
-          
-          beg <- end+1
-          
-          col3 <- base::list()
-          for (i in beg:itemnbr){
-            col3[[(i-2*percolumn)]] <- gradR::make_scale(
-              letter = graded_items$letter[i],
-              proposition = graded_items$proposition[i],
-              scale = graded_items$scale[i],
-              checked = graded_items$checked[i],
-              correct = graded_items$correct[i],
-              ns
-            )
-          }
-          
-          if (typequest %in% c("Essay","Problem")){
-            col3[[(itemnbr+1)]] <- shiny::actionButton(
-              ns("save_checks"), "Save", icon = shiny::icon("save"),
-              style = "background-color:#006600;color:#FFF;width:100%;"
-            )
-          }
-          
-          
-          ui <- shiny::fluidRow(
-            shiny::column(4, col1),
-            shiny::column(4, col2),
-            shiny::column(4, col3)
+          ui[[cat]] <- shinydashboard::box(
+            title = cat, status = "danger",
+            solidHeader = TRUE, collapsible = TRUE,
+            width = 4, tmpui 
+          )
+        }
+        if (typequest %in% c("Essay","Problem")){
+          ui[[(base::length(ui)+1)]] <- shiny::actionButton(
+            ns("save_checks"), "Save", icon = shiny::icon("save"),
+            style = "background-color:#006600;color:#FFF;width:100%;"
           )
         }
         
@@ -869,7 +810,10 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
           )
         
         results <- modrval$workinprogress |>
-          dplyr::full_join(dplyr::select(modrval$solutions), by = c("test","version","language","letter")) |>
+          dplyr::full_join(dplyr::select(
+            modrval$solutions,
+            test, version, language, letter, correct, weight
+          ), by = c("test","version","language","letter")) |>
           tidyr::replace_na(base::list(checked = 0)) |>
           dplyr::filter(!base::is.na(studentid)) |>
           dplyr::left_join(tests, by = c("test","question","version"))
@@ -1045,6 +989,10 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
           
           selected_solutions |>
             dplyr::bind_rows(new_row) |>
+            dplyr::select(
+              number, letter, item, proposition, value, scale,
+              explanation, keywords, correct, weight, category, remove
+            ) |>
             dplyr::mutate(
               scale = base::factor(scale, levels = c(
                 "logical","qualitative","percentage"
@@ -1054,17 +1002,11 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
             rhandsontable::rhandsontable(
               width = "95%", rowHeaders = NULL, stretchH = "all"
             ) |>
-            rhandsontable::hot_col(c(1,2,3,4,5,6,8), readOnly = TRUE) |>
-            rhandsontable::hot_cols(
-              colWidths = c(
-                "3%","5%","5%","3%","3%","5%","3%","5%","3%","3%",
-                "12%","10%","3%","3%","15%","10%","3%","3%","3%"
-              ),
-              manualColumnResize = TRUE
-            ) |>
-            rhandsontable::hot_context_menu(
-              allowRowEdit = FALSE, allowColEdit = FALSE
-            )
+            rhandsontable::hot_col(c(1:3), colWidths = 25, readOnly = TRUE) |>
+            rhandsontable::hot_col("proposition", colWidths = 200) |>
+            rhandsontable::hot_col("explanation", colWidths = 400) |>
+            rhandsontable::hot_cols(manualColumnResize = TRUE) |>
+            rhandsontable::hot_context_menu(allowRowEdit = FALSE, allowColEdit = FALSE)
         } else {
           selected_solutions |>
             dplyr::mutate(
@@ -1076,17 +1018,11 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
             rhandsontable::rhandsontable(
               width = "95%", rowHeaders = NULL, stretchH = "all"
             ) |>
-            rhandsontable::hot_col(c(1,2,3,4,5,6,8,10,11,13,15), readOnly = TRUE) |>
-            rhandsontable::hot_cols(
-              colWidths = c(
-                "3%","5%","5%","3%","3%","2%","5%","3%","15%",
-                "3%","7%","27%","10%","3%","3%","3%"
-              ),
-              manualColumnResize = TRUE
-            ) |>
-            rhandsontable::hot_context_menu(
-              allowRowEdit = FALSE, allowColEdit = FALSE
-            )
+            rhandsontable::hot_col(c(1:3), colWidths = 25, readOnly = TRUE) |>
+            rhandsontable::hot_col("proposition", colWidths = 200) |>
+            rhandsontable::hot_col("explanation", colWidths = 400) |>
+            rhandsontable::hot_cols(manualColumnResize = TRUE) |>
+            rhandsontable::hot_context_menu(allowRowEdit = FALSE, allowColEdit = FALSE)
         }
       })
       
@@ -1102,6 +1038,26 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
           dplyr::select(-remove) |>
           dplyr::mutate(scale = base::as.character(scale))
         
+        complement <- updatesolutions |>
+          dplyr::select(number, letter, item) |>
+          dplyr::left_join(modrval$solutions, by = c("number", "letter", "item")) |>
+          dplyr::select(number, letter, item, test, version, type, document, language, modifications, interrogation)
+        
+        complement <- complement |>
+          tidyr::replace_na(base::list(
+            test = complement$test[[1]],
+            version = complement$test[[1]],
+            type = complement$test[[1]],
+            document = complement$test[[1]],
+            language = complement$test[[1]],
+            modifications = 1,
+            interrogation = complement$test[[1]]
+          ))
+        
+        updatesolutions <- complement |>
+          dplyr::left_join(updatesolutions, by = c("number", "letter", "item")) |>
+          dplyr::select(dplyr::all_of(base::names(modrval$solutions)))
+        
         filtsolutions <- dplyr::anti_join(
           modrval$solutions,
           base::unique(dplyr::select(updatesolutions, test, version)),
@@ -1109,9 +1065,7 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
         )
         
         solutions <- dplyr::bind_rows(filtsolutions, updatesolutions)
-        
         modrval$solutions <- solutions
-        
         base::save(solutions, file = course_paths()$databases$solutions)
         
         filepath <- base::paste0(
@@ -1233,7 +1187,7 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
           testmetric <- grades() |>
             dplyr::mutate(section = "All", bloc = "All") |>
             dplyr::select(test, section, bloc, intake, studentid, end, points = test_points, grade)
-            
+          
         } else if (input$defmetric == "score") {
           testmetric <- scores() |>
             dplyr::select(test, section, bloc, intake, studentid, end, points, grade = score)
@@ -1445,13 +1399,13 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
               stringr::str_extract(
                 "([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\\.[a-zA-Z0-9_-]+)"
               )
-              blastula::smtp_send(
-                message,
-                from = sender,
-                to = input$emailtest,
-                subject = input$mailsubject,
-                credentials = blastula::creds_file(input$slctcreds)
-              )
+            blastula::smtp_send(
+              message,
+              from = sender,
+              to = input$emailtest,
+              subject = input$mailsubject,
+              credentials = blastula::creds_file(input$slctcreds)
+            )
           } else {
             base::load(input$slctcreds)
             em <- outl$create_email(

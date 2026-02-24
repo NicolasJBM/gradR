@@ -27,7 +27,11 @@ grading_ui <- function(id){
     shiny::fluidRow(
       shiny::column(
         1,
-        shiny::uiOutput(ns("slctlanguage"))
+        shiny::actionButton(
+          ns("importanswers"), "Upload",
+          icon = shiny::icon("upload"),
+          style = "background-color:#006600;color:#FFF;width:100%;height:150px;margin-top:25px;margin-bottom:25px;"
+        )
       ),
       shiny::column(
         1,
@@ -45,7 +49,8 @@ grading_ui <- function(id){
           size = "sm",
           direction = "vertical",
           checkIcon = base::list(yes = shiny::icon("check"))
-        )
+        ),
+        shiny::uiOutput(ns("slctlanguage"))
       ),
       shiny::column(
         10,
@@ -54,15 +59,6 @@ grading_ui <- function(id){
     ),
     shinydashboard::tabBox(
       side = "left", width = "100%",
-      shiny::tabPanel(
-        title = shiny::tagList(
-          shiny::icon("upload"), shiny::span(
-            "Import",
-            title = "Import answers from students and create grading files."
-          )
-        ),
-        shiny::tags$hr()
-      ),
       shiny::tabPanel(
         title = shiny::tagList(
           shiny::icon("tasks"),
