@@ -674,8 +674,9 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
           selected_answers()$test[1], "/6_answers/text/",
           selected_answers()$version[1], "-",
           selected_answers()$intake[1], "-",
-          selected_answers()$studentid[1], ".txt"
-        )
+          selected_answers()$studentid[1],".txt"
+        ) |>
+          stringr::str_replace_all(" ", "_")
         if (base::file.exists(filepath)){
           base::readLines(filepath)
         } else ""
@@ -857,17 +858,16 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
         
         filepath <- base::paste0(
           course_paths()$subfolders$tests, "/",
-          selected_answers()$test[1], "/6_answers/",
+          selected_answers()$test[1], "/6_answers/text/",
           selected_answers()$version[1], "-",
           selected_answers()$intake[1], "-",
-          selected_answers()$studentid[1], ".txt"
-        )
+          selected_answers()$studentid[1],".txt"
+        ) |>
+          stringr::str_replace_all(" ", "_")
         
-        if (base::Sys.info()[1] == "Windows"){
-          base::shell.exec(filepath)
-        } else {
-          base::system2(filepath)
-        }
+        if (!base::file.exists(filepath)) base::writeLines(c("Copy and paste","the answer here.",""), filepath)
+        
+        rstudioapi::navigateToFile(filepath)
       })
       
       
