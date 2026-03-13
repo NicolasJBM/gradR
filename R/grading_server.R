@@ -167,6 +167,7 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
       outl <- NULL
       category <- NULL
       end <- NULL
+      sortid <- NULL
       
       
       
@@ -206,8 +207,9 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
           modrval$tests <- course_data()$tests
           solutions <- course_data()$solutions
           if (!("category" %in% base::names(solutions)))
-            solutions <- dplyr::mutate(solutions, category = "Criteria")
-          modrval$solutions <- solutions
+            solutions <- dplyr::mutate(solutions, category = "Criteria") |>
+            tidyr::replace_na(base::list(category = "TBD"))
+          if (base::is.null(modrval$solutions)) modrval$solutions <- solutions
           modrval$students <- course_data()$students
         })
       })
@@ -319,16 +321,27 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
           dplyr::select(test, question, version, intake, studentid, test_unit, language, end, letter, checked)
         
         if (input$filtertype == "Question"){
+          
+          testchoice <- base::sort(base::unique(selection$test))
+          
           shinyWidgets::updateVirtualSelect(
             inputId = "filterone",
-            choices = base::unique(selection$test),
-            selected = base::unique(selection$test)[1]
+            choices = testchoice,
+            selected = testchoice[1]
           )
         } else {
+          studentchoice <- selection |>
+            dplyr::select(studentid) |>
+            base::unique() |>
+            dplyr::mutate(sortid = base::as.numeric(base::trimws(stringr::str_remove_all(studentid, "[A-z]")))) |>
+            dplyr::arrange(sortid) |>
+            dplyr::select(studentid) |>
+            base::unlist() |> base::as.character()
+          
           shinyWidgets::updateVirtualSelect(
             "filterone",
-            choices = base::unique(selection$studentid),
-            selected = base::unique(selection$studentid)[1]
+            choices = studentchoice,
+            selected = studentchoice[1]
           )
         }
         
@@ -395,10 +408,11 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
         if (input$filtertype == "Question"){
           selection <- selection_base() |>
             dplyr::filter(test == input$filterone)
+          questionchoice <- c("No selection", base::unique(selection$question))
           shinyWidgets::updateVirtualSelect(
             "filtertwo",
-            choices = base::unique(selection$question),
-            selected = base::unique(selection$question)[1]
+            choices = questionchoice,
+            selected = questionchoice[1]
           )
         } else {
           selection <- selection_base() |>
@@ -417,8 +431,12 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
         shiny::req(!base::is.null(input$filtertwo))
         
         if (input$filtertype == "Question"){
-          selection <- after_filter_one() |>
-            dplyr::filter(question == input$filtertwo)
+          if (input$filtertwo == "No selection"){
+            selection <- after_filter_one()
+          } else {
+            selection <- after_filter_one() |>
+              dplyr::filter(question == input$filtertwo)
+          }
           shinyWidgets::updateVirtualSelect(
             "filterthree",
             choices = base::unique(selection$version),
@@ -441,7 +459,11 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
         shiny::req(!base::is.null(input$filterthree))
         if (input$filtertype == "Question"){
           selection <- after_filter_two() |>
-            dplyr::filter(version == input$filterthree)
+            dplyr::filter(version == input$filterthree) |>
+              dplyr::select(studentid) |>
+              base::unique() |>
+              dplyr::mutate(sortid = base::as.numeric(base::trimws(stringr::str_remove_all(studentid, "[A-z]")))) |>
+              dplyr::arrange(sortid)
           base::unique(selection$studentid)
         } else {
           selection <- after_filter_two() |>
@@ -629,7 +651,7 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
           dplyr::filter(
             test == selected_answers()$test[1],
             intake == selected_answers()$intake[1],
-            language == selected_answers()$language[1]
+            version == selected_answers()$version[1]
           ) |>
           dplyr::select(-test, -intake, -language)
         
@@ -1125,9 +1147,15 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
           dplyr::select(-remove) |>
           dplyr::mutate(scale = base::as.character(scale))
         
+        edited_solution <- modrval$solutions |>
+          dplyr::filter(
+            test == selected_answers()$test[1],
+            version == selected_answers()$version[1]
+          )
+        
         complement <- updatesolutions |>
           dplyr::select(number, letter, item) |>
-          dplyr::left_join(modrval$solutions, by = c("number", "letter", "item")) |>
+          dplyr::left_join(edited_solution, by = c("number", "letter", "item")) |>
           dplyr::select(number, letter, item, test, version, type, document, language, modifications, interrogation)
         
         complement <- complement |>
@@ -1145,16 +1173,6 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
           dplyr::left_join(updatesolutions, by = c("number", "letter", "item")) |>
           dplyr::select(dplyr::all_of(base::names(modrval$solutions)))
         
-        filtsolutions <- dplyr::anti_join(
-          modrval$solutions,
-          base::unique(dplyr::select(updatesolutions, test, version)),
-          by = c("test","version")
-        )
-        
-        solutions <- dplyr::bind_rows(filtsolutions, updatesolutions)
-        modrval$solutions <- solutions
-        base::save(solutions, file = course_paths()$databases$solutions)
-        
         filepath <- base::paste0(
           course_paths()$subfolders$tests, "/",
           selected_answers()$test[1],
@@ -1162,6 +1180,17 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
           selected_answers()$version[1], ".csv"
         )
         readr::write_csv(updatesolutions, file = filepath)
+        
+        filtsolutions <- dplyr::anti_join(
+          modrval$solutions,
+          base::unique(dplyr::select(updatesolutions, test, version)),
+          by = c("test","version")
+        )
+        
+        solutions <- dplyr::bind_rows(filtsolutions, updatesolutions)
+        base::save(solutions, file = course_paths()$databases$solutions)
+        
+        modrval$solutions <- solutions
         
         shinyalert::shinyalert("Saved!", "Grading has been updated.", "success")
       })
