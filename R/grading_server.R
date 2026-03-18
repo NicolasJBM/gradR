@@ -1147,30 +1147,24 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
           dplyr::select(-remove) |>
           dplyr::mutate(scale = base::as.character(scale))
         
-        edited_solution <- modrval$solutions |>
+        complement <- modrval$solutions |>
           dplyr::filter(
             test == selected_answers()$test[1],
             version == selected_answers()$version[1]
-          )
+          ) |>
+          dplyr::select(test, version, type, document, language, modifications, interrogation) |>
+          base::unique()
         
-        complement <- updatesolutions |>
-          dplyr::select(number, letter, item) |>
-          dplyr::left_join(edited_solution, by = c("number", "letter", "item")) |>
-          dplyr::select(number, letter, item, test, version, type, document, language, modifications, interrogation)
-        
-        complement <- complement |>
-          tidyr::replace_na(base::list(
+        updatesolutions <- updatesolutions |>
+          dplyr::mutate(
             test = complement$test[[1]],
-            version = complement$test[[1]],
-            type = complement$test[[1]],
-            document = complement$test[[1]],
-            language = complement$test[[1]],
-            modifications = 1,
-            interrogation = complement$test[[1]]
-          ))
-        
-        updatesolutions <- complement |>
-          dplyr::left_join(updatesolutions, by = c("number", "letter", "item")) |>
+            version = complement$version[[1]],
+            type = complement$type[[1]],
+            document = complement$document[[1]],
+            language = complement$language[[1]],
+            modifications = complement$modifications[[1]],
+            interrogation = complement$interrogation[[1]]
+          ) |>
           dplyr::select(dplyr::all_of(base::names(modrval$solutions)))
         
         filepath <- base::paste0(
