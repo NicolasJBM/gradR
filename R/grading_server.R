@@ -533,6 +533,8 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
             version == selected_answers()$version[1]
           )
         
+        shiny::req(base::nrow(solutions) > 0)
+        
         typequest <- solutions |>
           dplyr::select(type) |>
           base::unlist() |>
@@ -897,6 +899,7 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
       results <- shiny::reactive({
         
         shiny::req(!base::is.null(selected_answers()))
+        shiny::req(base::nrow(selected_answers()) > 0)
         shiny::req(!base::is.null(modrval$tests))
         shiny::req(!base::is.null(modrval$workinprogress))
         shiny::req(!base::is.null(modrval$solutions))
