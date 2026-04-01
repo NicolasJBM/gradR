@@ -653,7 +653,7 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
           dplyr::filter(
             test == selected_answers()$test[1],
             intake == selected_answers()$intake[1],
-            version == selected_answers()$version[1]
+            language == selected_answers()$language[1]
           ) |>
           dplyr::select(-test, -intake, -language)
         
@@ -905,6 +905,10 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
         shiny::req(!base::is.null(modrval$solutions))
         shiny::req(!base::is.null(modrval$students))
         
+        
+        
+        
+        
         tests <- modrval$tests |>
           dplyr::mutate(test_languages = purrr::map(test_languages, stringr::str_split, pattern = ";", simplify = TRUE)) |>
           dplyr::mutate(test_languages = purrr::map(test_languages, base::as.character)) |>
@@ -922,7 +926,7 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
           dplyr::full_join(dplyr::select(
             modrval$solutions,
             test, version, language, letter, correct, weight, proposition, explanation
-          ), by = c("test","version","letter")) |>
+          ), by = c("test","version","language","letter")) |>
           tidyr::replace_na(base::list(checked = 0)) |>
           dplyr::filter(!base::is.na(studentid)) |>
           dplyr::left_join(tests, by = c("test","version"))
