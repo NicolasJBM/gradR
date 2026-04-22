@@ -715,7 +715,7 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
           selected_answers()$test[1], "/7_feedback"
         )
         shiny::req(base::dir.exists(modrval$feedbackfolder))
-        commentpath <- base::paste0(modrval$feedbackfolder, "/comments.csv")
+        commentpath <- base::paste0(modrval$feedbackfolder, "/comments_", input$slctexamlang,".csv")
         if (base::file.exists(commentpath)) {
           modrval$comments <- readr::read_csv(file = commentpath, col_types = "cccccc")
         } else {
@@ -765,7 +765,7 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
           dplyr::anti_join(newcomment, by = c("test", "version", "intake", "studentid", "end"))
         
         comments <- dplyr::bind_rows(oldcomments, newcomment)
-        commentpath <- base::paste0(modrval$feedbackfolder, "/comments.csv")
+        commentpath <- base::paste0(modrval$feedbackfolder, "/comments_", input$slctexamlang,".csv")
         readr::write_csv(comments, file = commentpath)
         modrval$comments <- comments
         
