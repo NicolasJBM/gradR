@@ -921,7 +921,7 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
           ) |>
           dplyr::full_join(dplyr::select(
             modrval$solutions,
-            test, version, language, letter, correct, weight, proposition, explanation, category
+            test, version, language, item, number, letter, correct, weight, proposition, explanation, category
           ), by = c("test","version","language","letter")) |>
           tidyr::replace_na(base::list(checked = 0)) |>
           dplyr::filter(!base::is.na(studentid)) |>
@@ -1290,23 +1290,51 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
       ##########################################################################
       # Results tab
       
+      evaluated <- shiny::reactive({
+        shiny::req(!base::is.null(results()))
+        results() |>
+          dplyr::select(studentid, item) |>
+          base::unique() |>
+          dplyr::group_by(studentid) |>
+          dplyr::summarise(count = dplyr::n()) |>
+          dplyr::filter(count >= 2) |>
+          dplyr::select(studentid) |>
+          base::unlist() |>
+          base::as.character()
+      })
+      
+      output$define_maximum <- shiny::renderUI({
+        shiny::req(!base::is.null(selected_answers()))
+        selected_test <- modrval$tests |>
+          dplyr::filter(test == selected_answers()$test[1])
+        shiny::numericInput(
+          ns("maxpoints"), "Maximum grade:",
+          value = base::min(selected_test$test_points[[1]], base::max(grades()$grade)),
+          step = 1, width = "100%"
+        )
+      })
+      
       testmetric <- shiny::reactive({
         
         shiny::req(!base::is.null(results()))
         shiny::req(!base::is.null(scores()))
         shiny::req(!base::is.null(grades()))
         shiny::req(!base::is.null(input$defmetric))
+        shiny::req(!base::is.null(evaluated()))
         
         if (input$defmetric == "grade"){
           testmetric <- grades() |>
+            dplyr::filter(studentid %in% evaluated()) |>
             dplyr::mutate(section = "All", bloc = "All") |>
             dplyr::select(test, section, bloc, intake, studentid, end, points = test_points, grade)
           
         } else if (input$defmetric == "score") {
           testmetric <- scores() |>
+            dplyr::filter(studentid %in% evaluated()) |>
             dplyr::select(test, section, bloc, intake, studentid, end, points, grade = score)
         } else {
           testmetric <- results() |>
+            dplyr::filter(studentid %in% evaluated()) |>
             dplyr::select(test, section, bloc, intake, studentid, end, points, grade = earned)
         }
         
@@ -1327,8 +1355,9 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
       
       output$testmetrics <- shiny::renderUI({
         shiny::req(!base::is.null(distribution_base()))
+        shiny::req(!base::is.null(input$maxpoints))
         shiny::req(!base::is.null(input$defpass))
-        passgrade <- input$defpass * distribution_base()$points[1]
+        passgrade <- input$defpass * input$maxpoints
         count <- base::length(base::unique(distribution_base()$studentid))
         minimum <- base::round(base::min(stats::na.omit(distribution_base()$grade)),2)
         ave <- base::round(base::mean(stats::na.omit(distribution_base()$grade)),2)
@@ -1350,15 +1379,15 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
       
       output$testdistribution <- shiny::renderPlot({
         shiny::req(!base::is.null(distribution_base()))
+        shiny::req(!base::is.null(input$maxpoints))
         shiny::req(!base::is.null(input$defpass))
         shiny::req(!base::is.null(input$defhistbreaks))
         shiny::req(!base::is.null(input$deffacet))
-        passgrade <- input$defpass * distribution_base()$points[1]
-        students <- modrval$students |>
-          dplyr::mutate(studentid = base::paste0("s", studentid))
+        passgrade <- input$defpass * input$maxpoints
+        students <- modrval$students
         distribution <- distribution_base() |>
           dplyr::left_join(students, by = c("studentid","intake"))
-        chartR::draw_grade_distribution(distribution, passgrade, input$defhistbreaks, input$deffacet)
+        chartR::draw_grade_distribution(distribution, input$maxpoints, passgrade, input$defhistbreaks, input$deffacet)
       })
       
       

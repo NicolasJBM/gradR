@@ -209,6 +209,7 @@ grading_ui <- function(id){
               choices = c("earned","score","grade"),
               selected = "grade", width = "100%"
             ),
+            shiny::uiOutput(ns("define_maximum")),
             shiny::sliderInput(ns("defpass"), "Pass:", value = 0.6, width = "100%", min = 0, max = 1, step = 0.01),
             shiny::selectInput(
               ns("deffacet"), "Facet:",
