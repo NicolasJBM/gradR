@@ -764,7 +764,8 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
         oldcomments <- modrval$comments |>
           dplyr::anti_join(newcomment, by = c("test", "version", "intake", "studentid", "end"))
         
-        comments <- dplyr::bind_rows(oldcomments, newcomment)
+        comments <- dplyr::bind_rows(oldcomments, newcomment) |>
+          base::unique()
         commentpath <- base::paste0(modrval$feedbackfolder, "/comments_", input$slctexamlang,".csv")
         readr::write_csv(comments, file = commentpath)
         modrval$comments <- comments
