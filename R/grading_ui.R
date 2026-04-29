@@ -225,7 +225,7 @@ grading_ui <- function(id){
         shiny::fluidRow(
           shiny::column(
             2,
-            shiny::numericInput(ns("defhistbreaks"), "Breaks:", value = 1)
+            shiny::numericInput(ns("defhistbreaks"), "Breaks:", value = 1, step = 0.25)
           ),
           shiny::column(
             10,
