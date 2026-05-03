@@ -1078,11 +1078,13 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
           }
           newitem <- base::paste0(c("EITM", base::rep(0, 6-base::nchar(newitem)), newitem), collapse = "")
           
+          extendedleters <- c(letters, base::c(base::t(base::outer(letters, letters, paste, sep = ""))))
+          
           new_row <- tibble::tibble(
             test = selected_answers()$test[1],
             version = selected_answers()$version[1],
             number = lastitem,
-            letter = letters[lastitem],
+            letter = extendedleters[lastitem],
             item = newitem,
             type = selected_solutions$type[1],
             document = "",
