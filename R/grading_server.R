@@ -1524,6 +1524,7 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
         if (base::grepl("^[[:alnum:]._-]+@[[:alnum:].-]+$", input$emailtest)){
           
           feedback_data <- feedback_data()
+          slctstudentid <- selected_answers()$studentid[1]
           
           shinybusy::show_modal_spinner(
             spin = "orbit",
