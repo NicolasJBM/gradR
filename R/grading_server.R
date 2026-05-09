@@ -168,6 +168,7 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
       category <- NULL
       end <- NULL
       sortid <- NULL
+      facet <- NULL
       
       
       
@@ -1342,6 +1343,7 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
         }
         
         testmetric  |>
+          tidyr::replace_na(base::list(grade = 0)) |>
           dplyr::group_by(test, section, bloc, intake, studentid, end) |>
           dplyr::summarise(points = base::sum(points), grade = base::sum(grade))
       })
@@ -1360,24 +1362,63 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
         shiny::req(!base::is.null(distribution_base()))
         shiny::req(!base::is.null(input$maxpoints))
         shiny::req(!base::is.null(input$defpass))
-        passgrade <- input$defpass * input$maxpoints
-        count <- base::length(base::unique(distribution_base()$studentid))
-        minimum <- base::round(base::min(stats::na.omit(distribution_base()$grade)),2)
-        ave <- base::round(base::mean(stats::na.omit(distribution_base()$grade)),2)
-        med <- base::round(stats::median(stats::na.omit(distribution_base()$grade)),2)
-        maximum <- base::round(base::max(stats::na.omit(distribution_base()$grade)),2)
-        range <- minimum-minimum
-        stddev <- base::round(stats::sd(stats::na.omit(distribution_base()$grade)),2)
-        passrate <- base::round(100*base::mean(stats::na.omit(distribution_base()$grade) >= passgrade),2)
-        base::list(
-          shinydashboard::valueBox(count, "Students", shiny::icon("users"), "maroon", width = 2),
-          shinydashboard::valueBox(minimum, "Minimum", shiny::icon("sort-down"), "red", width = 1),
-          shinydashboard::valueBox(ave, "Mean", shiny::icon("ruler-horizontal"), "orange", width = 2),
-          shinydashboard::valueBox(med, "Median", shiny::icon("circle-half-stroke"), "yellow", width = 2),
-          shinydashboard::valueBox(maximum, "Maximum", shiny::icon("sort-up"), "green", width = 1),
-          shinydashboard::valueBox(stddev, "Standard deviation", shiny::icon("arrows-left-right"), "navy", width = 2),
-          shinydashboard::valueBox(passrate, "Pass", shiny::icon("percent"), "purple", width = 2)
-        )
+        shiny::req(!base::is.null(input$deffacet))
+        
+        if (input$deffacet == "none"){
+          passgrade <- input$defpass * input$maxpoints
+          count <- base::length(base::unique(distribution_base()$studentid))
+          minimum <- base::round(base::min(stats::na.omit(distribution_base()$grade)),2)
+          ave <- base::round(base::mean(stats::na.omit(distribution_base()$grade)),2)
+          med <- base::round(stats::median(stats::na.omit(distribution_base()$grade)),2)
+          maximum <- base::round(base::max(stats::na.omit(distribution_base()$grade)),2)
+          range <- minimum-minimum
+          stddev <- base::round(stats::sd(stats::na.omit(distribution_base()$grade)),2)
+          passrate <- base::round(100*base::mean(stats::na.omit(distribution_base()$grade) >= passgrade),2)
+          base::list(
+            shinydashboard::valueBox(count, "Students", shiny::icon("users"), "maroon", width = 2),
+            shinydashboard::valueBox(minimum, "Minimum", shiny::icon("sort-down"), "red", width = 1),
+            shinydashboard::valueBox(ave, "Mean", shiny::icon("ruler-horizontal"), "orange", width = 2),
+            shinydashboard::valueBox(med, "Median", shiny::icon("circle-half-stroke"), "yellow", width = 2),
+            shinydashboard::valueBox(maximum, "Maximum", shiny::icon("sort-up"), "green", width = 1),
+            shinydashboard::valueBox(stddev, "Standard deviation", shiny::icon("arrows-left-right"), "navy", width = 2),
+            shinydashboard::valueBox(passrate, "Pass", shiny::icon("percent"), "purple", width = 2)
+          )
+        } else {
+          
+          stdbase <- modrval$students[,c("studentid",input$deffacet)]
+          base::names(stdbase) <- c("studentid","facet")
+          prepbase <- distribution_base() |>
+            dplyr::left_join(stdbase, by = c("studentid"))
+          facets <- base::unique(prepbase$facet)
+          
+          ui <- base::list()
+          
+          for (f in facets){
+            subbase <- prepbase |>
+              dplyr::filter(facet == f)
+            passgrade <- input$defpass * input$maxpoints
+            count <- base::length(base::unique(subbase$studentid))
+            minimum <- base::round(base::min(stats::na.omit(subbase$grade)),2)
+            ave <- base::round(base::mean(stats::na.omit(subbase$grade)),2)
+            med <- base::round(stats::median(stats::na.omit(subbase$grade)),2)
+            maximum <- base::round(base::max(stats::na.omit(subbase$grade)),2)
+            range <- minimum-minimum
+            stddev <- base::round(stats::sd(stats::na.omit(subbase$grade)),2)
+            passrate <- base::round(100*base::mean(stats::na.omit(subbase$grade) >= passgrade),2)
+            
+            ui[[f]] <- base::list(
+              shinydashboard::valueBox(count, "Students", shiny::icon("users"), "maroon", width = 2),
+              shinydashboard::valueBox(minimum, "Minimum", shiny::icon("sort-down"), "red", width = 1),
+              shinydashboard::valueBox(ave, "Mean", shiny::icon("ruler-horizontal"), "orange", width = 2),
+              shinydashboard::valueBox(med, "Median", shiny::icon("circle-half-stroke"), "yellow", width = 2),
+              shinydashboard::valueBox(maximum, "Maximum", shiny::icon("sort-up"), "green", width = 1),
+              shinydashboard::valueBox(stddev, "Standard deviation", shiny::icon("arrows-left-right"), "navy", width = 2),
+              shinydashboard::valueBox(passrate, "Pass", shiny::icon("percent"), "purple", width = 2)
+            )
+          }
+          
+          ui
+        }
       })
       
       output$testdistribution <- shiny::renderPlot({
