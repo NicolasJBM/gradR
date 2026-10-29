@@ -320,7 +320,7 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
           dplyr::filter(intake == selected_intake()) |>
           dplyr::left_join(dplyr::select(tests, test, question, version, language, test_unit), by = c("test","version")) |>
           dplyr::select(test, question, version, intake, studentid, test_unit, language, end, letter, checked) |>
-          dplyr::filter(language == input$slctexamlang) 
+          dplyr::filter(language == input$slctexamlang)
         
         if (input$filtertype == "Question"){
           
