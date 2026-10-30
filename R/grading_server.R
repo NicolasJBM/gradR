@@ -1292,6 +1292,22 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
       # Diagnostics tab
       
       
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
       ##########################################################################
       # Results tab
       
@@ -1430,8 +1446,14 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
         shiny::req(!base::is.null(input$deffacet))
         passgrade <- input$defpass * input$maxpoints
         students <- modrval$students
+        
+        View(distribution_base())
+        
         distribution <- distribution_base() |>
           dplyr::left_join(students, by = c("studentid","intake"))
+        
+        View(distribution)
+        
         chartR::draw_grade_distribution(distribution, input$maxpoints, passgrade, input$defhistbreaks, input$deffacet)
       })
       
@@ -1488,25 +1510,25 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
       
       feedback_data <- shiny::reactive({
         shiny::req(!base::is.null(course_data()))
-        shiny::req(!base::is.null(selected_answers()))
-        shiny::req(base::nrow(selected_answers()) > 0)
+        shiny::req(!base::is.null(selection_base()))
+        shiny::req(base::nrow(selection_base()) > 0)
         shiny::req(!base::is.null(results()))
         shiny::req(!base::is.null(scores()))
         shiny::req(!base::is.null(grades()))
         shiny::req(!base::is.null(modrval$comments))
         
-        selected_answers <- selected_answers()
+        answers <- selection_base()
         results <- results()
         scores <- scores()
         grades <- grades()
         documents <- course_data()$databases$documents
-        intake <- dplyr::filter(course_data()$intakes, intake == selected_answers()$intake[1])
+        intake <- dplyr::filter(course_data()$intakes, intake == answers$intake[1])
         tbltree <- course_data()$tbltrees[[base::paste0(intake$tree[[1]], ".RData")]]
         comments <- modrval$comments
         students <- modrval$students
         
         base::list(
-          selected_answers = selected_answers,
+          answers = answers,
           results = results,
           scores = scores,
           grades = grades,
@@ -1635,8 +1657,6 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
           text = "Please wait while the e-mail is sent..."
         )
         
-        
-        
         msgnbr <- base::nrow(valid_recipients)
         pgr <- 1/msgnbr
         shinybusy::show_modal_progress_line(
@@ -1660,41 +1680,39 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
       })
       
       
+      
       shiny::observeEvent(input$printfeedback, {
         shiny::req(!base::is.null(input$slctexamlang))
         
         feedback_data <- feedback_data()
         
-        valid_recipients <- feedback_data$grades |>
-          dplyr::select(test, intake, language, studentid, team, email) |>
-          dplyr::filter(
-            language == input$slctexamlang,
-            test == feedback_data$selected_answers$test[1],
-            intake == feedback_data$selected_answers$intake
-          ) |>
-          base::unique()
+        reports_for <- selection_base() |>
+          dplyr::select(studentid) |>
+          base::unique() |>
+          base::unlist() |>
+          base::as.character()
         
         shinybusy::show_modal_spinner(
           spin = "orbit",
-          text = "Please wait while the e-mail is sent..."
+          text = "Please wait while the reports are printed..."
         )
         
-        msgnbr <- base::nrow(valid_recipients)
-        pgr <- 1/msgnbr
+        rptnbr <- base::length(reports_for)
+        pgr <- 1/rptnbr
         shinybusy::show_modal_progress_line(
           value = pgr, text = "Reporting progress:"
         )
-        for (i in base::seq_len(msgnbr)){
-          pgr <- pgr + 1/msgnbr
-          slctstudentid <- valid_recipients$studentid[i]
-          slctteamid <- valid_recipients$team[i]
+        for (slctstudentid in reports_for){
           
+          print(slctstudentid)
+          View(feedback_data)
+          
+          pgr <- pgr + 1/rptnbr
           rmarkdown::render(
             input = feedback_template_path(),
             output_file = base::paste0(slctstudentid, ".html"),
             output_dir = "tmp"
           )
-          
           shinybusy::update_modal_progress(pgr)
         }
         shinybusy::remove_modal_progress()
