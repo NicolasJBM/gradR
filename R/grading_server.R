@@ -175,7 +175,7 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
       idtext <- NULL
       month <- NULL
       year <- NULL
-      
+      prechecked <- NULL
       
       
       ##########################################################################
