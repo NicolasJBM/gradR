@@ -13,7 +13,6 @@ Encoding: UTF-8
 License: GPL-3 | file LICENSE
 Depends: R (>= 3.6)
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.3
 Imports:
   dplyr,
   purrr,
@@ -38,3 +37,4 @@ Imports:
 Remotes:
   NicolasJBM/editR,
   NicolasJBM/chartR
+Config/roxygen2/version: 8.1.1

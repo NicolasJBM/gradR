@@ -8,103 +8,127 @@ export(make_scale)
 export(reinitialize_weights)
 export(update_question)
 export(write_compiled)
-importFrom(blastula,creds_file)
-importFrom(blastula,render_email)
-importFrom(blastula,smtp_send)
+importFrom(blastula,
+  creds_file,
+  render_email,
+  smtp_send
+)
 importFrom(chartR,draw_grade_distribution)
-importFrom(dplyr,all_of)
-importFrom(dplyr,anti_join)
-importFrom(dplyr,arrange)
-importFrom(dplyr,bind_rows)
-importFrom(dplyr,case_when)
-importFrom(dplyr,everything)
-importFrom(dplyr,filter)
-importFrom(dplyr,full_join)
-importFrom(dplyr,group_by)
-importFrom(dplyr,left_join)
-importFrom(dplyr,mutate)
-importFrom(dplyr,mutate_if)
-importFrom(dplyr,n)
-importFrom(dplyr,rename)
-importFrom(dplyr,right_join)
-importFrom(dplyr,select)
-importFrom(dplyr,summarise)
-importFrom(dplyr,ungroup)
-importFrom(editR,selection_server)
-importFrom(editR,selection_ui)
+importFrom(dplyr,
+  all_of,
+  anti_join,
+  arrange,
+  bind_rows,
+  case_when,
+  everything,
+  filter,
+  full_join,
+  group_by,
+  left_join,
+  mutate,
+  mutate_if,
+  n,
+  rename,
+  right_join,
+  select,
+  summarise,
+  ungroup
+)
+importFrom(editR,
+  selection_server,
+  selection_ui
+)
 importFrom(knitr,knit2html)
-importFrom(purrr,map)
-importFrom(purrr,map2)
-importFrom(purrr,map2_chr)
-importFrom(purrr,map2_dbl)
-importFrom(purrr,map_dbl)
-importFrom(readr,read_csv)
-importFrom(readr,read_lines)
-importFrom(readr,write_csv)
-importFrom(rhandsontable,hot_col)
-importFrom(rhandsontable,hot_cols)
-importFrom(rhandsontable,hot_context_menu)
-importFrom(rhandsontable,hot_to_r)
-importFrom(rhandsontable,rHandsontableOutput)
-importFrom(rhandsontable,renderRHandsontable)
-importFrom(rhandsontable,rhandsontable)
+importFrom(purrr,
+  map,
+  map2,
+  map2_chr,
+  map2_dbl,
+  map_dbl
+)
+importFrom(readr,
+  read_csv,
+  read_lines,
+  write_csv
+)
+importFrom(rhandsontable,
+  hot_col,
+  hot_cols,
+  hot_context_menu,
+  hot_to_r,
+  rHandsontableOutput,
+  renderRHandsontable,
+  rhandsontable
+)
 importFrom(rmarkdown,render)
 importFrom(rstudioapi,navigateToFile)
-importFrom(shiny,HTML)
-importFrom(shiny,NS)
-importFrom(shiny,actionButton)
-importFrom(shiny,checkboxGroupInput)
-importFrom(shiny,column)
-importFrom(shiny,fileInput)
-importFrom(shiny,fluidRow)
-importFrom(shiny,icon)
-importFrom(shiny,isolate)
-importFrom(shiny,moduleServer)
-importFrom(shiny,numericInput)
-importFrom(shiny,observe)
-importFrom(shiny,observeEvent)
-importFrom(shiny,plotOutput)
-importFrom(shiny,reactive)
-importFrom(shiny,reactiveValues)
-importFrom(shiny,renderPlot)
-importFrom(shiny,renderUI)
-importFrom(shiny,req)
-importFrom(shiny,selectInput)
-importFrom(shiny,sliderInput)
-importFrom(shiny,span)
-importFrom(shiny,tabPanel)
-importFrom(shiny,tagList)
-importFrom(shiny,textAreaInput)
-importFrom(shiny,textInput)
-importFrom(shiny,uiOutput)
-importFrom(shiny,withMathJax)
+importFrom(shiny,
+  HTML,
+  NS,
+  actionButton,
+  checkboxGroupInput,
+  column,
+  fileInput,
+  fluidRow,
+  icon,
+  isolate,
+  moduleServer,
+  numericInput,
+  observe,
+  observeEvent,
+  plotOutput,
+  reactive,
+  reactiveValues,
+  renderPlot,
+  renderUI,
+  req,
+  selectInput,
+  sliderInput,
+  span,
+  tabPanel,
+  tagList,
+  textAreaInput,
+  textInput,
+  uiOutput,
+  withMathJax
+)
 importFrom(shinyAce,aceEditor)
-importFrom(shinyWidgets,animateOptions)
-importFrom(shinyWidgets,dropdown)
-importFrom(shinyWidgets,materialSwitch)
-importFrom(shinyWidgets,prettyToggle)
-importFrom(shinyWidgets,radioGroupButtons)
-importFrom(shinyWidgets,updateVirtualSelect)
-importFrom(shinyWidgets,virtualSelectInput)
+importFrom(shinyWidgets,
+  animateOptions,
+  dropdown,
+  materialSwitch,
+  prettyToggle,
+  radioGroupButtons,
+  updateVirtualSelect,
+  virtualSelectInput
+)
 importFrom(shinyalert,shinyalert)
-importFrom(shinybusy,remove_modal_progress)
-importFrom(shinybusy,remove_modal_spinner)
-importFrom(shinybusy,show_modal_progress_line)
-importFrom(shinybusy,show_modal_spinner)
-importFrom(shinybusy,update_modal_progress)
-importFrom(shinydashboard,tabBox)
-importFrom(shinydashboard,valueBox)
+importFrom(shinybusy,
+  remove_modal_progress,
+  remove_modal_spinner,
+  show_modal_progress_line,
+  show_modal_spinner,
+  update_modal_progress
+)
+importFrom(shinydashboard,
+  tabBox,
+  valueBox
+)
 importFrom(shinydashboardPlus,box)
-importFrom(stringr,str_count)
-importFrom(stringr,str_detect)
-importFrom(stringr,str_extract)
-importFrom(stringr,str_extract_all)
-importFrom(stringr,str_remove)
-importFrom(stringr,str_remove_all)
-importFrom(stringr,str_replace)
-importFrom(stringr,str_replace_all)
-importFrom(stringr,str_split)
+importFrom(stringr,
+  str_count,
+  str_detect,
+  str_extract,
+  str_extract_all,
+  str_remove,
+  str_remove_all,
+  str_replace,
+  str_replace_all,
+  str_split
+)
 importFrom(tibble,tibble)
-importFrom(tidyr,nest)
-importFrom(tidyr,replace_na)
-importFrom(tidyr,unnest)
+importFrom(tidyr,
+  nest,
+  replace_na,
+  unnest
+)

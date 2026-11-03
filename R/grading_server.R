@@ -169,11 +169,31 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
       end <- NULL
       sortid <- NULL
       facet <- NULL
+      block <- NULL
+      day <- NULL
+      files <- NULL
+      idtext <- NULL
+      month <- NULL
+      year <- NULL
       
       
       
       ##########################################################################
-      # Loading
+      # Preselection
+      
+      output$select_test <- shiny::renderUI({
+        shiny::req(!base::is.na(base::length(course_paths()) == 2))
+        tests <- course_paths()$subfolders$tests |>
+          base::list.dirs(full.names = FALSE, recursive = FALSE)
+        tests <- base::replace(tests, tests == "archives", "No selection")
+        shiny::selectInput(
+          ns("selecttest"),
+          "Select a test:",
+          choices = tests,
+          selected = "No selection",
+          width = "100%"
+        )
+      })
       
       output$slctlanguage <- shiny::renderUI({
         shiny::req(!base::is.null(course_data()$languages))
@@ -190,94 +210,84 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
           status = "primary",
           justified = TRUE,
           size = "sm",
-          direction = "vertical",
+          direction = "horizontal",
           checkIcon = base::list(yes = shiny::icon("check"))
         )
       })
       
+      
+      ##########################################################################
+      # Loading
+      
+      
       modrval <- shiny::reactiveValues()
       
       shiny::observe({
-        shiny::req(!base::is.null(course_data()$answers))
-        shiny::req(!base::is.na(input$slctexamlang))
-        shiny::req(!base::is.na(base::length(course_paths()) == 2))
+        shiny::req(!base::is.null(input$selecttest))
+        selected_test <- input$selecttest
+        shiny::req(selected_test != "No selection")
         shiny::isolate({
-          modrval$answers <- course_data()$answers |>
-            dplyr::mutate(end = base::as.character(end))
-          modrval$workinprogress <- modrval$answers
-          modrval$tests <- course_data()$tests
-          solutions <- course_data()$solutions
+          solutions <- tibble::tibble(
+              files = base::list.files(
+                base::paste0(course_paths()$subfolders$tests,"/",selected_test,"/4_solutions"),
+                full.names = TRUE
+              )
+            ) |>
+            dplyr::filter(stringr::str_detect(files, ".csv")) |>
+            dplyr::mutate(data = purrr::map(files, readr::read_csv, col_types = "ccdcccccdccdcccdd")) |>
+            dplyr::select(-files) |>
+            tidyr::unnest(data)
           if (!("category" %in% base::names(solutions)))
             solutions <- dplyr::mutate(solutions, category = "Criteria") |>
-            tidyr::replace_na(base::list(category = "TBD"))
+              tidyr::replace_na(base::list(category = "TBD"))
           if (base::is.null(modrval$solutions)) modrval$solutions <- solutions
+          
+          answers <- tibble::tibble(
+            files = base::list.files(
+              base::paste0(course_paths()$subfolders$tests,"/",selected_test,"/6_answers"),
+              full.names = TRUE
+            )
+          ) |>
+            dplyr::filter(stringr::str_detect(files, ".csv")) |>
+            dplyr::mutate(data = purrr::map(files, readr::read_csv, col_types = "ccccccccd")) |>
+            dplyr::select(-files) |>
+            tidyr::unnest(data) |>
+            dplyr::arrange(test, version, intake, language, studentid, end, letter)
+          
+          texts <- tibble::tibble(
+            files = base::list.files(
+              base::paste0(course_paths()$subfolders$tests,"/",selected_test,"/6_answers/text"),
+              full.names = TRUE
+            ),
+            idtext = base::list.files(
+              base::paste0(course_paths()$subfolders$tests,"/",selected_test,"/6_answers/text"),
+              full.names = FALSE
+            )
+          ) |>
+            dplyr::filter(stringr::str_detect(files, ".txt")) |>
+            dplyr::mutate(
+              idtext = stringr::str_remove_all(idtext, ".txt$"),
+              data = purrr::map(files, base::readLines)
+            ) |>
+            tidyr::separate(
+              idtext,
+              into = c("language","section","block","question","version","intake","studentid","year","month","day"),
+              sep = "-",
+              remove = FALSE
+            ) |>
+            tidyr::unite("version", language,section,block,question,version, sep = "-", remove = TRUE) |>
+            tidyr::unite("end", year, month, day, sep = "-", remove = TRUE) |>
+            base::suppressWarnings()
+          
+          base::load(base::paste0(course_paths()$subfolders$tests,"/",selected_test,"/test_parameters.RData"))
+          
           modrval$students <- course_data()$students
+          modrval$test_parameters <- test_parameters
+          modrval$solutions <- solutions
+          modrval$answers <- answers
+          modrval$texts <- texts
         })
       })
-      
-      
-      
-      ##########################################################################
-      # Importation of answers
-      
-      output$selectimports <- shiny::renderUI({
-        shiny::fluidRow(
-          shiny::selectInput(
-            ns("importtest"),
-            "Test:",
-            choices = base::unique(course_data()$tests$test),
-            selected = base::unique(course_data()$tests$test)[1],
-            multiple = FALSE, width = "100%"
-          ),
-          shiny::selectInput(
-            ns("importintake"),
-            "Intake:",
-            choices = base::unique(course_data()$students$intake),
-            selected = base::unique(course_data()$students$intake)[1],
-            multiple = FALSE, width = "100%"
-          ),
-          shiny::selectInput(
-            ns("importlanguage"),
-            "Language:",
-            choices = base::unique(course_data()$languages$langiso),
-            selected = base::unique(course_data()$languages$langiso)[1],
-            multiple = FALSE, width = "100%"
-          ),
-          shiny::fileInput(
-            ns("importfile"),
-            "File:",
-            accept = ".csv", width = "100%"
-          )
-        )
-      })
-      
-      shiny::observeEvent(input$importanswers, {
-        folderpath <- base::paste0(course_paths()$subfolders$tests, "/", input$importtest, "/6_answers")
-        shiny::req(base::dir.exists(folderpath))
-        filename <- base::paste0(input$importtest, "-", input$importintake, "-", input$importlanguage, ".csv")
-        filepath <- base::paste0(folderpath, "/", filename)
-        file <- input$importfile
-        shiny::req(file)
-        import <- utils::read.csv(file$datapath, header = TRUE) |>
-          dplyr::mutate(
-            test = input$importtest,
-            intake = input$importintake,
-            language = input$importlanguage
-          ) |>
-            dplyr::select(test, intake, version, studentid, start, end, letter, checked)
-        if (input$overappend == "Overwrite" & base::file.exists(filepath)){
-          base::file.remove(filepath)
-          answers <- import
-        } else if (input$overappend == "Append" & base::file.exists(filepath)){
-          initial <- utils::read.csv(filepath, header = TRUE)
-          answers <- dplyr::bind_rows(initial, import)
-        } else {
-          answers <- import
-        }
-        utils::write.csv(answers, file = filepath, row.names = FALSE)
-        shinyalert::shinyalert("Imported!", "The answers have been successfully imported in the test folder.", "success")
-      })
-      
       
       
       ##########################################################################
@@ -286,230 +296,130 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
       shiny::observe({
         if (input$filtertype == "Question"){
           shiny::isolate({
-            modrval$labelfilterone <- "Test:"
-            modrval$labelfiltertwo <- "Question:"
-            modrval$labelfilterthree <- "Version:"
-            modrval$labelfilterfour <- "Student:"
-            modrval$labelfilterfive <- "Attempt:"
+            modrval$labelfilterone <- "Version:"
+            modrval$labelfiltertwo <- "Student:"
+            modrval$labelfilterthree <- "Attempt:"
           })
         } else {
           shiny::isolate({
             modrval$labelfilterone <- "Student:"
-            modrval$labelfiltertwo <- "Test:"
-            modrval$labelfilterthree <- "Attempt:"
-            modrval$labelfilterfour <- "Question:"
-            modrval$labelfilterfive <- "Version:"
+            modrval$labelfiltertwo <- "Attempt:"
+            modrval$labelfilterthree <- "Version:"
           })
         }
       })
       
-      selection_base <- shiny::reactive({
-        shiny::req(!base::is.null(modrval$answers))
-        shiny::req(!base::is.null(selected_intake()))
-        shiny::req(!base::is.null(input$slctexamlang))
-        
-        tests <- modrval$tests |>
-          dplyr::mutate(
-            question = stringr::str_replace_all(question, "US.Rmd$", base::paste0(input$slctexamlang, ".Rmd")),
-            version = stringr::str_replace_all(version, "^US", input$slctexamlang),
-            language = input$slctexamlang
-          )
-        
-        selection <- modrval$answers |>
-          dplyr::select(test, intake, studentid, end, version, letter, checked) |>
-          dplyr::filter(intake == selected_intake()) |>
-          dplyr::left_join(dplyr::select(tests, test, question, version, language, test_unit), by = c("test","version")) |>
-          dplyr::select(test, question, version, intake, studentid, test_unit, language, end, letter, checked) |>
-          dplyr::filter(language == input$slctexamlang)
-        
-        if (input$filtertype == "Question"){
-          
-          testchoice <- base::sort(base::unique(selection$test))
-          
-          shinyWidgets::updateVirtualSelect(
-            inputId = "filterone",
-            choices = testchoice,
-            selected = testchoice[1]
-          )
-        } else {
-          studentchoice <- selection |>
-            dplyr::select(studentid) |>
-            base::unique() |>
-            dplyr::mutate(sortid = base::as.numeric(base::trimws(stringr::str_remove_all(studentid, "[A-z]")))) |>
-            dplyr::arrange(sortid) |>
-            dplyr::select(studentid) |>
-            base::unlist() |> base::as.character()
-          
-          shinyWidgets::updateVirtualSelect(
-            "filterone",
-            choices = studentchoice,
-            selected = studentchoice[1]
-          )
-        }
-        
-        stats::na.omit(selection)
-      })
       
       output$filters <- shiny::renderUI({
         base::list(
           shiny::fluidRow(
             shiny::column(
               4,
-              shinyWidgets::virtualSelectInput(
-                inputId = ns("filterone"),
-                label = modrval$labelfilterone, 
-                choices = NA,
-                multiple = FALSE, 
-                hasOptionDescription = FALSE,
-                width = "100%",
-                dropboxWrapper = "body"
-              )
+              editR::selection_ui(ns("filterone"), modrval$labelfilterone)
             ),
             shiny::column(
               4,
-              shinyWidgets::virtualSelectInput(
-                inputId = ns("filtertwo"),
-                label = modrval$labelfiltertwo, 
-                choices = NA,
-                multiple = FALSE, 
-                hasOptionDescription = FALSE,
-                width = "100%",
-                dropboxWrapper = "body"
-              )
+              editR::selection_ui(ns("filtertwo"), modrval$labelfiltertwo)
             ),
             shiny::column(
               4,
-              shinyWidgets::virtualSelectInput(
-                inputId = ns("filterthree"),
-                label = modrval$labelfilterthree, 
-                choices = NA,
-                multiple = FALSE, 
-                hasOptionDescription = FALSE,
-                width = "100%",
-                dropboxWrapper = "body"
-              )
-            )
-          ),
-          shiny::fluidRow(
-            shiny::column(
-              6,
-              editR::selection_ui(ns("filterfour"), modrval$labelfilterfour)
-            ),
-            shiny::column(
-              6,
-              editR::selection_ui(ns("filterfive"), modrval$labelfilterfive)
+              editR::selection_ui(ns("filterthree"), modrval$labelfilterthree)
             )
           )
         )
       })
       
+      
+      selection_base <- shiny::reactive({
+        shiny::req(!base::is.null(modrval$answers))
+        shiny::req(!base::is.null(selected_intake()))
+        shiny::req(!base::is.null(input$slctexamlang))
+        
+        tests <- modrval$test_parameters |>
+          dplyr::mutate(
+            question = stringr::str_replace_all(question, "US.Rmd$", base::paste0(input$slctexamlang, ".Rmd")),
+            version = stringr::str_replace_all(version, "^US", input$slctexamlang),
+            language = input$slctexamlang
+          )
+        
+        modrval$answers |>
+          dplyr::select(test, intake, studentid, end, version, letter, checked) |>
+          dplyr::filter(intake == selected_intake()) |>
+          dplyr::left_join(dplyr::select(tests, test, question, version, language, test_unit), by = c("test","version")) |>
+          dplyr::select(test, question, version, intake, studentid, test_unit, language, end, letter, checked) |>
+          dplyr::filter(language == input$slctexamlang) |>
+          stats::na.omit()
+      })
+      
+      after_base <- shiny::reactive({
+        shiny::req(!base::is.null(selection_base()))
+        shiny::req(base::nrow(selection_base()) > 0)
+        if (input$filtertype == "Question"){
+          selection <- base::unique(selection_base()$version)
+          
+        } else {
+          selection <- base::unique(selection_base()$studentid)
+        }
+        selection
+      })
+      
+      selectedone <- editR::selection_server("filterone", after_base)
+      
       after_filter_one <- shiny::reactive({
         shiny::req(!base::is.null(selection_base()))
         shiny::req(base::nrow(selection_base()) > 0)
-        shiny::req(!base::is.null(input$filterone))
+        shiny::req(!base::is.null(selectedone()))
         if (input$filtertype == "Question"){
           selection <- selection_base() |>
-            dplyr::filter(test == input$filterone)
-          questionchoice <- c("No selection", base::unique(selection$question))
-          shinyWidgets::updateVirtualSelect(
-            "filtertwo",
-            choices = questionchoice,
-            selected = questionchoice[1]
-          )
+            dplyr::filter(version == selectedone())
+          selection <- base::unique(selection$studentid)
         } else {
           selection <- selection_base() |>
-            dplyr::filter(studentid == input$filterone)
-          shinyWidgets::updateVirtualSelect(
-            "filtertwo",
-            choices = base::unique(selection$test),
-            selected = base::unique(selection$test)[1]
-          )
+            dplyr::filter(studentid == selectedone())
+          selection <- base::unique(selection$version)
         }
         selection
       })
+      
+      selectedtwo <- editR::selection_server("filtertwo", after_filter_one)
       
       after_filter_two <- shiny::reactive({
-        shiny::req(!base::is.null(after_filter_one()))
-        shiny::req(!base::is.null(input$filtertwo))
-        
+        shiny::req(!base::is.null(selection_base()))
+        shiny::req(base::nrow(selection_base()) > 0)
+        shiny::req(!base::is.null(selectedone()))
+        shiny::req(!base::is.null(selectedtwo()))
         if (input$filtertype == "Question"){
-          if (input$filtertwo == "No selection"){
-            selection <- after_filter_one()
-          } else {
-            selection <- after_filter_one() |>
-              dplyr::filter(question == input$filtertwo)
-          }
-          shinyWidgets::updateVirtualSelect(
-            "filterthree",
-            choices = base::unique(selection$version),
-            selected = base::unique(selection$version)[1]
-          )
+          selection <- selection_base() |>
+            dplyr::filter(version == selectedone()) |>
+            dplyr::filter(studentid == selectedtwo())
+          selection <- base::unique(selection$end)
         } else {
-          selection <- after_filter_one() |>
-            dplyr::filter(test == input$filtertwo)
-          shinyWidgets::updateVirtualSelect(
-            "filterthree",
-            choices = base::unique(selection$end),
-            selected = base::unique(selection$end)[1]
-          )
+          selection <- selection_base() |>
+            dplyr::filter(studentid == selectedone()) |>
+            dplyr::filter(version == selectedtwo())
+          selection <- base::unique(selection$end)
         }
         selection
       })
       
-      after_filter_three <- shiny::reactive({
-        shiny::req(!base::is.null(after_filter_two()))
-        shiny::req(!base::is.null(input$filterthree))
-        if (input$filtertype == "Question"){
-          selection <- after_filter_two() |>
-            dplyr::filter(version == input$filterthree) |>
-              dplyr::select(studentid) |>
-              base::unique() |>
-              dplyr::mutate(sortid = base::as.numeric(base::trimws(stringr::str_remove_all(studentid, "[A-z]")))) |>
-              dplyr::arrange(sortid)
-          base::unique(selection$studentid)
-        } else {
-          selection <- after_filter_two() |>
-            dplyr::filter(end == input$filterthree)
-          base::unique(selection$question)
-        }
-      })
-      
-      selectedfour <- editR::selection_server("filterfour", after_filter_three)
-      
-      after_filter_four <- shiny::reactive({
-        shiny::req(!base::is.null(after_filter_two()))
-        shiny::req(!base::is.null(input$filterthree))
-        shiny::req(!base::is.null(selectedfour()))
-        if (input$filtertype == "Question"){
-          selection <- after_filter_two() |>
-            dplyr::filter(version == input$filterthree) |>
-            dplyr::filter(studentid == selectedfour())
-          base::unique(selection$end)
-        } else {
-          selection <- after_filter_two() |>
-            dplyr::filter(end == input$filterthree) |>
-            dplyr::filter(question == selectedfour())
-          base::unique(selection$version)
-        }
-      })
-      
-      selectedfive <- editR::selection_server("filterfive", after_filter_four)
+      selectedthree <- editR::selection_server("filterthree", after_filter_two)
       
       selected_answers <- shiny::reactive({
-        shiny::req(!base::is.null(after_filter_two()))
-        shiny::req(!base::is.null(input$filterthree))
-        shiny::req(!base::is.null(selectedfour()))
-        shiny::req(!base::is.null(selectedfive()))
+        shiny::req(!base::is.null(selection_base()))
+        shiny::req(base::nrow(selection_base()) > 0)
+        shiny::req(!base::is.null(selectedone()))
+        shiny::req(!base::is.null(selectedtwo()))
+        shiny::req(!base::is.null(selectedthree()))
         if (input$filtertype == "Question"){
-          selection <- after_filter_two() |>
-            dplyr::filter(version == input$filterthree) |>
-            dplyr::filter(studentid == selectedfour()) |>
-            dplyr::filter(end == selectedfive())
+          selection <- selection_base() |>
+            dplyr::filter(version == selectedone()) |>
+            dplyr::filter(studentid == selectedtwo()) |>
+            dplyr::filter(end == selectedthree())
         } else {
-          selection <- after_filter_two() |>
-            dplyr::filter(end == input$filterthree) |>
-            dplyr::filter(question == selectedfour()) |>
-            dplyr::filter(version == selectedfive())
+          selection <- selection_base() |>
+            dplyr::filter(studentid == selectedone()) |>
+            dplyr::filter(version == selectedtwo()) |>
+            dplyr::filter(end == selectedthree())
         }
         selection
       })
@@ -543,7 +453,7 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
           base::as.character() |>
           base::unique()
         
-        graded_items <- modrval$workinprogress |>
+        graded_items <- modrval$answers |>
           dplyr::filter(
             test == selected_answers()$test[1],
             version == selected_answers()$version[1],
@@ -617,10 +527,11 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
         
         update_answer <- tibble::tibble(
           test = selected_answers()$test[1],
+          version = selected_answers()$version[1],
           intake = selected_answers()$intake[1],
+          language = selected_answers()$language[1],
           studentid = selected_answers()$studentid[1],
           end = selected_answers()$end[1],
-          version = selected_answers()$version[1],
           letter = letters,
           checked_chr = checks
         ) |>
@@ -638,34 +549,36 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
           dplyr::select(-checked_chr) |>
           dplyr::arrange(letter)
         
-        update_answer <- modrval$workinprogress |>
+        update_answer <- modrval$answers |>
           dplyr::select(-letter, -checked) |>
           base::unique() |>
-          dplyr::right_join(update_answer, by = c("test","intake","studentid","end","version"))
+          dplyr::right_join(update_answer, by = c("test","version","intake","language","studentid","end"))
         
-        answers <- modrval$workinprogress |>
-          dplyr::anti_join(update_answer, by = c("test","intake","studentid","end","version")) |>
+        answers <- modrval$answers |>
+          dplyr::anti_join(update_answer, by = c("test","version","intake","language","studentid","end")) |>
           dplyr::bind_rows(update_answer) |>
-          dplyr::arrange(test, intake, studentid, version, letter)
+          dplyr::arrange(test, version, intake, language, studentid, end, letter)
         
-        modrval$workinprogress <- answers
-        base::save(answers, file = course_paths()$databases$answers)
+        modrval$answers <- answers
         
         answers_to_file <- answers |>
           dplyr::filter(
             test == selected_answers()$test[1],
+            version == selected_answers()$version[1],
             intake == selected_answers()$intake[1],
-            language == selected_answers()$language[1]
+            end == selected_answers()$end[1]
           ) |>
-          dplyr::select(-test, -intake, -language)
+          dplyr::select(test, version, intake, language, studentid, start, end, letter, checked)
         
         filepath <- base::paste0(
           course_paths()$subfolders$tests, "/",
           selected_answers()$test[1], "/6_answers/",
-          selected_answers()$test[1], "-",
-          selected_answers()$intake[1], "-",
-          selected_answers()$language[1], ".csv"
+          selected_answers()$test[1], "_",
+          selected_answers()$version[1], "_",
+          selected_answers()$intake[1], "_",
+          selected_answers()$end[1], ".csv"
         )
+        
         readr::write_csv(answers_to_file, file = filepath)
         
         shinyalert::shinyalert("Saved!", "Grading has been updated.", "success")
@@ -693,19 +606,16 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
       
       
       open_answer_txt <- shiny::reactive({
-        shiny::req(!base::is.null(selected_answers()))
-        shiny::req(base::nrow(selected_answers()) > 0)
-        filepath <- base::paste0(
-          course_paths()$subfolders$tests, "/",
-          selected_answers()$test[1], "/6_answers/text/",
-          selected_answers()$version[1], "-",
-          selected_answers()$intake[1], "-",
-          selected_answers()$studentid[1],".txt"
-        ) |>
-          stringr::str_replace_all(" ", "_")
-        if (base::file.exists(filepath)){
-          base::readLines(filepath)
-        } else ""
+        shiny::req(!base::is.null(modrval$texts))
+        selected_text <- modrval$texts |>
+          dplyr::filter(
+            version == selected_answers()$version[1],
+            intake == selected_answers()$intake[1],
+            studentid == selected_answers()$studentid[1],
+            end == selected_answers()$end[1]
+          )
+        shiny::req(base::nrow(selected_text) == 1)
+        selected_text$data[[1]]
       })
       
       
@@ -903,12 +813,12 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
         
         shiny::req(!base::is.null(selected_answers()))
         shiny::req(base::nrow(selected_answers()) > 0)
-        shiny::req(!base::is.null(modrval$tests))
-        shiny::req(!base::is.null(modrval$workinprogress))
+        shiny::req(!base::is.null(modrval$test_parameters))
+        shiny::req(!base::is.null(modrval$answers))
         shiny::req(!base::is.null(modrval$solutions))
         shiny::req(!base::is.null(modrval$students))
         
-        tests <- modrval$tests |>
+        tests <- modrval$test_parameters |>
           dplyr::mutate(test_languages = purrr::map(test_languages, stringr::str_split, pattern = ";", simplify = TRUE)) |>
           dplyr::mutate(test_languages = purrr::map(test_languages, base::as.character)) |>
           tidyr::unnest(test_languages) |>
@@ -917,7 +827,7 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
             version = purrr::map2_chr(version, test_languages, function(x,y) stringr::str_replace(x,"^US",y))
           )
         
-        results <- modrval$workinprogress |>
+        results <- modrval$answers |>
           dplyr::filter(
             test == selected_answers()$test[[1]],
             intake == selected_answers()$intake[[1]]
@@ -1190,11 +1100,10 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
         )
         
         solutions <- dplyr::bind_rows(filtsolutions, updatesolutions)
-        base::save(solutions, file = course_paths()$databases$solutions)
         
         modrval$solutions <- solutions
         
-        shinyalert::shinyalert("Saved!", "Grading has been updated.", "success")
+        shinyalert::shinyalert("Saved!", "Solutions have been updated.", "success")
       })
       
       
@@ -1206,10 +1115,10 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
       output$edit_parameters <- rhandsontable::renderRHandsontable({
         shiny::req(!base::is.null(selected_answers()))
         shiny::req(base::nrow(selected_answers()) > 0)
-        shiny::req(!base::is.null(modrval$tests))
+        shiny::req(!base::is.null(modrval$test_parameters))
         shiny::req(!base::is.null(input$slctexamlang))
         
-        selected_tests <- modrval$tests |>
+        selected_tests <- modrval$test_parameters |>
           dplyr::filter(
             test == selected_answers()$test[1],
             question == stringr::str_replace_all(selected_answers()$question[1], input$slctexamlang, "US")
@@ -1253,26 +1162,23 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
       shiny::observeEvent(input$save_param, {
         shiny::req(!base::is.null(selected_answers()))
         shiny::req(base::nrow(selected_answers()) > 0)
-        shiny::req(!base::is.null(modrval$tests))
+        shiny::req(!base::is.null(modrval$test_parameters))
         
-        test_parameters <- rhandsontable::hot_to_r(input$edit_parameters) |>
-          dplyr::mutate(
-            question == stringr::str_replace(selected_answers()$question[1], "_...Rmd", "_US.Rmd"),
-            version == stringr::str_replace(selected_answers()$question[1], "_...Rmd", "_US.Rmd"),
-            test_date = base::as.POSIXct(test_date, tz="UTC")
-          )
+        tmp <- modrval$test_parameters
         
-        tests <- dplyr::anti_join(
-          modrval$tests,
-          base::unique(dplyr::select(test_parameters, test, question, version)),
+        question_parameters <- rhandsontable::hot_to_r(input$edit_parameters) |>
+          dplyr::mutate(test_date = base::as.POSIXct(test_date, tz="UTC"))
+        
+        other_question_parameters <- dplyr::anti_join(
+          modrval$test_parameters,
+          base::unique(dplyr::select(question_parameters, test, question, version)),
           by  =c("test","question","version")
         )
         
-        tests <- dplyr::bind_rows(tests, test_parameters) |>
+        test_parameters <- dplyr::bind_rows(other_question_parameters, question_parameters) |>
           dplyr::arrange(test, section, bloc)
         
-        modrval$tests <- tests
-        base::save(tests, file = course_paths()$databases$tests)
+        modrval$test_parameters <- test_parameters
         
         filepath <- base::paste0(
           course_paths()$subfolders$tests, "/",
@@ -1281,7 +1187,7 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
         )
         base::save(test_parameters, file = filepath)
         
-        shinyalert::shinyalert("Saved!", "Grading has been updated.", "success")
+        shinyalert::shinyalert("Saved!", "Test parameters have been updated.", "success")
       })
       
       
@@ -1326,7 +1232,7 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
       
       output$define_maximum <- shiny::renderUI({
         shiny::req(!base::is.null(selected_answers()))
-        selected_test <- modrval$tests |>
+        selected_test <- modrval$test_parameters |>
           dplyr::filter(test == selected_answers()$test[1])
         shiny::numericInput(
           ns("maxpoints"), "Maximum grade:",
@@ -1447,12 +1353,8 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
         passgrade <- input$defpass * input$maxpoints
         students <- modrval$students
         
-        View(distribution_base())
-        
         distribution <- distribution_base() |>
           dplyr::left_join(students, by = c("studentid","intake"))
-        
-        View(distribution)
         
         chartR::draw_grade_distribution(distribution, input$maxpoints, passgrade, input$defhistbreaks, input$deffacet)
       })
@@ -1703,10 +1605,6 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
           value = pgr, text = "Reporting progress:"
         )
         for (slctstudentid in reports_for){
-          
-          print(slctstudentid)
-          View(feedback_data)
-          
           pgr <- pgr + 1/rptnbr
           rmarkdown::render(
             input = feedback_template_path(),

@@ -35,74 +35,33 @@ grading_ui <- function(id){
   base::list(
     shiny::fluidRow(
       shiny::column(
-        2,
-        shiny::fluidRow(
-          shiny::column(
-            4,
-            shinyWidgets::dropdown(
-              shiny::uiOutput(ns("selectimports")),
-              rhandsontable::rHandsontableOutput(ns("importtable")),
-              shiny::tags$hr(),
-              shiny::HTML("Expected columns for import: version, studentid, start, end, letter, checked"),
-              shiny::tags$hr(),
-              shiny::fluidRow(
-                shiny::column(
-                  6,
-                  shinyWidgets::radioGroupButtons(
-                    inputId = ns("overappend"),
-                    label = NULL,
-                    choiceNames = c(
-                      "<i class='fa fa-file-circle-plus'>Append</i>",
-                      "<i class='fa fa-file-circle-xmark'>Overwrite</i>"
-                    ),
-                    choiceValues = c("Append","Overwrite"),
-                    status = "danger",
-                    selected = "Append",
-                    justified = TRUE,
-                    size = "sm",
-                    direction = "horizontal",
-                    checkIcon = base::list(yes = shiny::icon("check"))
-                  )
-                ),
-                shiny::column(
-                  6,
-                  shiny::actionButton(ns("importanswers"), "Import", icon = shiny::icon("upload"), style = "width:100%;color:#FFFFFF;background-color:#003366;")
-                )
-              ),
-              size = "lg", style = "unite", icon = icon("table-cells"),
-              status = "success", width = "600px",
-              animate = shinyWidgets::animateOptions(
-                enter = shinyWidgets::animations$fading_entrances$fadeInLeftBig,
-                exit = shinyWidgets::animations$fading_exits$fadeOutRightBig
-              )
-            )
-          ),
-          shiny::column(
-            8,
-            shiny::uiOutput(ns("slctlanguage")),
-            shinyWidgets::radioGroupButtons(
-              inputId = ns("filtertype"),
-              label = "Focus:",
-              choiceNames = c(
-                "<i class='fa fa-circle-question'>Question</i>",
-                "<i class='fa fa-circle-user'>Student</i>"
-              ),
-              choiceValues = c("Question","Student"),
-              status = "primary",
-              selected = "Question",
-              justified = TRUE,
-              size = "sm",
-              direction = "vertical",
-              checkIcon = base::list(yes = shiny::icon("check"))
-            )
-          ) 
-        )
+        6,
+        shiny::uiOutput(ns("select_test"))
       ),
       shiny::column(
-        10,
-        shiny::uiOutput(ns("filters"))
+        3,
+        shiny::uiOutput(ns("slctlanguage"))
+      ),
+      shiny::column(
+        3,
+        shinyWidgets::radioGroupButtons(
+          inputId = ns("filtertype"),
+          label = "Focus:",
+          choiceNames = c(
+            "<i class='fa fa-circle-question'>Question</i>",
+            "<i class='fa fa-circle-user'>Student</i>"
+          ),
+          choiceValues = c("Question","Student"),
+          status = "primary",
+          selected = "Question",
+          justified = TRUE,
+          size = "sm",
+          direction = "horizontal",
+          checkIcon = base::list(yes = shiny::icon("check"))
+        )
       )
     ),
+    shiny::uiOutput(ns("filters")),
     shinydashboard::tabBox(
       side = "left", width = "100%",
       shiny::tabPanel(
