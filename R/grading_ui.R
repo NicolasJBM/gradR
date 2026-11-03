@@ -78,12 +78,27 @@ grading_ui <- function(id){
           shiny::column(
             4,
             shiny::uiOutput(ns("displaywordcount")),
-            shinyWidgets::materialSwitch(
-              inputId = ns("dispallkw"),
-              label = "Highlight all keywords", 
-              status = "primary",
-              value = FALSE,
-              right = TRUE
+            shiny::fluidRow(
+              shiny::column(
+                6,
+                shinyWidgets::materialSwitch(
+                  inputId = ns("dispallkw"),
+                  label = "Highlight all keywords", 
+                  status = "primary",
+                  value = FALSE,
+                  right = TRUE
+                ),
+              ),
+              shiny::column(
+                6,
+                shinyWidgets::materialSwitch(
+                  inputId = ns("checkkw"),
+                  label = "Precheck based on keywords", 
+                  status = "danger",
+                  value = FALSE,
+                  right = TRUE
+                ),
+              )
             ),
             shiny::uiOutput(ns("keywords_selection"))
           ),
