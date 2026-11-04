@@ -483,16 +483,19 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
             intake == selected_answers()$intake[1],
             studentid == selected_answers()$studentid[1],
             end == selected_answers()$end[1]
-          ) |>
+          )
+        
+        graded_items <- graded_items |>
           dplyr::right_join(base::unique(dplyr::select(
             solutions, test, version, letter,
             proposition, scale, correct, category
           )), by = c("test","version","letter")) |>
-          tidyr::replace_na(base::list(checked = 0))
+          tidyr::replace_na(base::list(checked = 0)) |>
+          stats::na.omit()
         
         if (typequest %in% c("Essay","Problem")){
           graded_items <- graded_items |>
-            dplyr::arrange(proposition) |>
+            dplyr::arrange(category, proposition) |>
             dplyr::select(category, letter, proposition, scale, checked, correct) |>
             base::unique()
         } else {
@@ -502,7 +505,7 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
             base::unique()
         }
         
-        if (!base::is.null(open_answer_txt()) & input$checkkw){
+        if (input$checkkw){
           text <- base::paste(open_answer_txt(), sep = " ")
           bow <- solutions |>
             dplyr::select(letter, keywords) |>
@@ -517,6 +520,9 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
             dplyr::left_join(bow, by = "letter") |>
             dplyr::mutate(checked = purrr::map2_dbl(checked, prechecked, base::max, na.rm = TRUE)) |>
             dplyr::select(-prechecked)
+        } else {
+          graded_items <- graded_items
+          tmp3 <- graded_items
         }
         
         categories <- base::unique(graded_items$category)
@@ -541,11 +547,13 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
             width = 4, tmpui 
           )
         }
-        if (typequest %in% c("Essay","Problem")){
+        if (typequest %in% c("Essay")){
           ui[[(base::length(ui)+1)]] <- shiny::actionButton(
             ns("save_checks"), "Save", icon = shiny::icon("save"),
             style = "background-color:#006600;color:#FFF;width:100%;"
           )
+        } else {
+          ui[[(base::length(ui)+1)]] <- shiny::tags$hr()
         }
         
         ui
@@ -895,7 +903,6 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
       })
       
       
-      
       scores <- shiny::reactive({
         shiny::req(!base::is.null(results()))
         results() |>
@@ -910,7 +917,7 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
             intake, studentid, team, firstname, lastname, email, end,
             test_points, points, partial_credits, penalty
           ) |>
-          dplyr::summarise(score = base::sum(earned)) |>
+          dplyr::summarise(score = base::sum(earned, na.rm = TRUE)) |>
           dplyr::ungroup() |>
           dplyr::mutate(score = dplyr::case_when(
             score < 0 & penalty == 0 ~ 0,
@@ -959,7 +966,8 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
             end == selected_answers()$end[1],
           ) |>
           dplyr::select(points, score) |>
-          base::unique()
+          base::unique() |>
+          dplyr::mutate(score = base::round(score, 2))
         
         shiny::req(base::nrow(score) == 1)
         points <- score$points[1]
@@ -1062,7 +1070,7 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
                 "logical","qualitative","percentage"
               ))
             ) |>
-            dplyr::arrange(proposition) |>
+            dplyr::arrange(category, proposition) |>
             rhandsontable::rhandsontable(
               width = "95%", rowHeaders = NULL, stretchH = "all"
             ) |>

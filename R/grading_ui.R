@@ -72,7 +72,7 @@ grading_ui <- function(id){
             title = "Check answers provided by each student to each question."
           )
         ),
-        shiny::uiOutput(ns("check_answers")),
+        shiny::fluidRow(shiny::uiOutput(ns("check_answers"))),
         shiny::tags$hr(),
         shiny::fluidRow(
           shiny::column(
