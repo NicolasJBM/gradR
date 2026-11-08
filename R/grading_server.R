@@ -1471,6 +1471,7 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
         documents <- course_data()$databases$documents
         intake <- dplyr::filter(course_data()$intakes, intake == answers$intake[1])
         tbltree <- course_data()$tbltrees[[base::paste0(intake$tree[[1]], ".RData")]]
+        texts <- modrval$texts
         comments <- modrval$comments
         students <- modrval$students
         
@@ -1482,10 +1483,31 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
           documents = documents,
           intake = intake,
           tbltree = tbltree,
+          texts = texts,
           comments = comments,
           students = students
         )
       })
+      
+      shiny::observe({
+        feedback_data()
+      })
+      
+      shiny::observeEvent(input$save_feedbackdata, {
+        shiny::req(!base::is.null(feedback_data()))
+        feedback_data <- feedback_data()
+        base::save(
+          feedback_data,
+          file = base::paste0(modrval$feedbackfolder, "/feedback_data.RData")
+        )
+        shinyalert::shinyalert(
+          "Feedback data saved!",
+          "You can get the file in the test feedback folder.",
+          type = "success", closeOnEsc = FALSE, closeOnClickOutside = TRUE,
+          inputId = "refreshpreview"
+        )
+      })
+      
       
       output$preview_feedback <- shiny::renderUI({
         shiny::req(!base::is.null(feedback_data()))

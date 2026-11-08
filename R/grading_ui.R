@@ -294,6 +294,10 @@ grading_ui <- function(id){
                     shiny::actionButton(
                       ns("printfeedback"), "Print all", icon = shiny::icon("print"),
                       style = "background-color:#006633;color:#FFF;width:100%;margin-bottom:10px;"
+                    ),
+                    shiny::actionButton(
+                      ns("save_feedbackdata"), "Save data", icon = shiny::icon("save"),
+                      style = "background-color:#006600;color:#FFF;width:100%;"
                     )
                   )
                 )
