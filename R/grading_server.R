@@ -1281,7 +1281,7 @@ grading_server <- function(id, selected_intake, course_data, course_paths){
           dplyr::filter(test == selected_answers()$test[1])
         shiny::numericInput(
           ns("maxpoints"), "Maximum grade:",
-          value = base::min(selected_test$test_points[[1]], base::max(grades()$grade)),
+          value = base::max(selected_test$test_points[[1]], base::max(grades()$grade)),
           step = 1, width = "100%"
         )
       })
